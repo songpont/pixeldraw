@@ -751,55 +751,28 @@
   </div>
 </div>
 
+<script src="pixel-engine.js"></script>
 <script>
 (function(){
   'use strict';
 
-  const DIRS = [
-    {key:'down', label:'Down'},
-    {key:'up', label:'Up'},
-    {key:'left', label:'Left'},
-    {key:'right', label:'Right'},
-  ];
+  const DIRS = PixelEngine.DIRS;
+  const engine = new PixelEngine({ gridW: 32, gridH: 32, dirs: DIRS });
 
-  let GRID_W = 32;
-  let GRID_H = 32;
   let CELL = 14;
   const MAX_VIEW = 480;
   const MIN_ZOOM = 0.1;
   const MAX_ZOOM = 16;
 
-  let currentDir = 'down';
   let tool = 'pen';
-  let mirrorX = false;
-  let mirrorY = false;
   let showGrid = true;
   let brushSize = 1;
   let selectedColor = '#f7c8a6';
-  let layerIdCounter = 1;
 
   let zoom = 1;
   let viewW = MAX_VIEW, viewH = MAX_VIEW;
   let panX = 0, panY = 0;
 
-  let palette = [
-    'transparent',
-    '#2a1e18',
-    '#f7c8a6',
-    '#dea882',
-    '#36261e',
-    '#f0f0eb',
-    '#cccccb',
-    '#3c5fa0',
-    '#283759',
-    '#2d201a',
-    '#4b8de0',
-    '#e0a24b',
-  ];
-
-  let frames = {};
-  let undoStack = [];
-  let redoStack = [];
   let clipboardData = null;
 
   let uiDirty = true;
@@ -813,70 +786,16 @@
   const pctx = previewCanvas.getContext('2d');
   const hoverEl = document.getElementById('hoverCell');
 
-  /* ============ data helpers ============ */
-
-  function newLayerData(){
-    return new Array(GRID_W*GRID_H).fill('transparent');
-  }
-
-  function newLayer(name){
-    layerIdCounter++;
-    return { id: layerIdCounter, name: name || ('Layer ' + layerIdCounter), visible: true, data: newLayerData() };
-  }
-
-  function ensureFrameDir(dir){
-    const f = frames[dir];
-    if(!f || !f.layers.length || f.layers[0].data.length !== GRID_W*GRID_H){
-      frames[dir] = { layers: [ newLayer('Layer 1') ], active: 0 };
-    }
-    return frames[dir];
-  }
-
-  function getActiveLayer(dir){
-    const f = ensureFrameDir(dir);
-    if(f.active >= f.layers.length) f.active = f.layers.length-1;
-    return f.layers[f.active];
-  }
-
-  function compositeArray(dir){
-    const f = ensureFrameDir(dir);
-    const out = new Array(GRID_W*GRID_H).fill('transparent');
-    f.layers.forEach(layer=>{
-      if(!layer.visible) return;
-      for(let i=0;i<out.length;i++){
-        const c = layer.data[i];
-        if(c && c!=='transparent') out[i] = c;
-      }
-    });
-    return out;
-  }
-
-  function cloneFrame(f){
-    return { active: f.active, layers: f.layers.map(l=>({ id:l.id, name:l.name, visible:l.visible, data:l.data.slice() })) };
-  }
-
-  function snapshotFrame(){
-    return cloneFrame(frames[currentDir]);
-  }
-
-  function pushUndo(){
-    undoStack.push(snapshotFrame());
-    if(undoStack.length>60) undoStack.shift();
-    redoStack = [];
-  }
+  /* ============ undo/redo (thin wrappers around the engine) ============ */
 
   function undo(){
-    if(!undoStack.length) return;
-    redoStack.push(snapshotFrame());
-    frames[currentDir] = undoStack.pop();
+    if(!engine.undo()) return;
     uiDirty = true;
     render();
   }
 
   function redo(){
-    if(!redoStack.length) return;
-    undoStack.push(snapshotFrame());
-    frames[currentDir] = redoStack.pop();
+    if(!engine.redo()) return;
     uiDirty = true;
     render();
   }
@@ -884,12 +803,12 @@
   /* ============ view / zoom / pan ============ */
 
   function computeCell(){
-    const maxSide = Math.max(GRID_W, GRID_H, 1);
+    const maxSide = Math.max(engine.gridW, engine.gridH, 1);
     return Math.max(2, Math.min(20, Math.floor(480 / maxSide)));
   }
 
   function computeFit(){
-    const w = GRID_W*CELL, h = GRID_H*CELL;
+    const w = engine.gridW*CELL, h = engine.gridH*CELL;
     return Math.max(MIN_ZOOM, Math.min(1, Math.min(viewW/w, viewH/h)));
   }
 
@@ -898,7 +817,7 @@
   }
 
   function clampPan(){
-    const cw = GRID_W*CELL*zoom, ch = GRID_H*CELL*zoom;
+    const cw = engine.gridW*CELL*zoom, ch = engine.gridH*CELL*zoom;
     if(cw <= viewW) panX = (viewW - cw)/2;
     else panX = Math.min(0, Math.max(viewW - cw, panX));
     if(ch <= viewH) panY = (viewH - ch)/2;
@@ -938,17 +857,17 @@
 
   function resizeCanvas(){
     CELL = computeCell();
-    const W = GRID_W*CELL, H = GRID_H*CELL;
+    const W = engine.gridW*CELL, H = engine.gridH*CELL;
     canvas.width = W;
     canvas.height = H;
     stage.style.width = W + 'px';
     stage.style.height = H + 'px';
-    previewCanvas.width = GRID_W;
-    previewCanvas.height = GRID_H;
+    previewCanvas.width = engine.gridW;
+    previewCanvas.height = engine.gridH;
     const maxPreview = 180;
-    const sf = Math.max(1, Math.floor(maxPreview / Math.max(GRID_W, GRID_H)));
-    previewCanvas.style.width = (GRID_W*sf) + 'px';
-    previewCanvas.style.height = (GRID_H*sf) + 'px';
+    const sf = Math.max(1, Math.floor(maxPreview / Math.max(engine.gridW, engine.gridH)));
+    previewCanvas.style.width = (engine.gridW*sf) + 'px';
+    previewCanvas.style.height = (engine.gridH*sf) + 'px';
     resetView();
   }
 
@@ -969,19 +888,19 @@
   }
 
   function render(){
-    const data = compositeArray(currentDir);
-    drawComposite(ctx, data, GRID_W, GRID_H, CELL);
+    const data = engine.compositeArray(engine.currentDir);
+    drawComposite(ctx, data, engine.gridW, engine.gridH, CELL);
 
     if(showGrid){
       ctx.strokeStyle = 'rgba(255,255,255,0.08)';
       ctx.lineWidth = 1;
-      for(let i=0;i<=GRID_W;i++){
+      for(let i=0;i<=engine.gridW;i++){
         ctx.beginPath();
         ctx.moveTo(i*CELL+0.5,0);
         ctx.lineTo(i*CELL+0.5,canvas.height);
         ctx.stroke();
       }
-      for(let j=0;j<=GRID_H;j++){
+      for(let j=0;j<=engine.gridH;j++){
         ctx.beginPath();
         ctx.moveTo(0,j*CELL+0.5);
         ctx.lineTo(canvas.width,j*CELL+0.5);
@@ -989,7 +908,7 @@
       }
     }
 
-    drawComposite(pctx, data, GRID_W, GRID_H, 1);
+    drawComposite(pctx, data, engine.gridW, engine.gridH, 1);
     updateMirrorLines();
     updateHoverEl();
     updateStatus();
@@ -1007,15 +926,15 @@
     const lx = document.getElementById('mirrorLineX');
     const ly = document.getElementById('mirrorLineY');
     const t = 2/zoom;
-    const W = GRID_W*CELL, H = GRID_H*CELL;
-    if(mirrorX){
+    const W = engine.gridW*CELL, H = engine.gridH*CELL;
+    if(engine.mirrorX){
       lx.style.display = 'block';
       lx.style.left = (W/2 - t/2) + 'px';
       lx.style.width = t + 'px';
       lx.style.top = '0';
       lx.style.height = H + 'px';
     } else lx.style.display = 'none';
-    if(mirrorY){
+    if(engine.mirrorY){
       ly.style.display = 'block';
       ly.style.top = (H/2 - t/2) + 'px';
       ly.style.height = t + 'px';
@@ -1026,7 +945,7 @@
 
   let hoverCell = null;
   function setHover(x,y){
-    if(x<0||x>=GRID_W||y<0||y>=GRID_H){ hoverCell = null; return; }
+    if(x<0||x>=engine.gridW||y<0||y>=engine.gridH){ hoverCell = null; return; }
     hoverCell = [x,y];
   }
 
@@ -1034,7 +953,7 @@
     if(hoverCell && !pointerActive){
       const brushTools = (tool==='pen'||tool==='eraser'||tool==='line'||tool==='rect'||tool==='ellipse');
       const size = brushTools ? brushSize : 1;
-      const [r0] = brushExtent(size);
+      const [r0] = PixelEngine.brushExtent(size);
       const hx = hoverCell[0]-r0, hy = hoverCell[1]-r0;
       hoverEl.style.display = 'block';
       hoverEl.style.left = (hx*CELL) + 'px';
@@ -1050,7 +969,7 @@
   function updateStatus(){
     const coord = hoverCell ? hoverCell[0] + ',' + hoverCell[1] : '—';
     const s = coord + ' · ' + tool + ' · brush ' + brushSize +
-              ' · ' + Math.round(zoom*100) + '% · ' + GRID_W + '×' + GRID_H;
+              ' · ' + Math.round(zoom*100) + '% · ' + engine.gridW + '×' + engine.gridH;
     if(s !== lastStatus){
       document.getElementById('statusText').textContent = s;
       document.getElementById('zoomLabel').textContent = Math.round(zoom*100) + '%';
@@ -1068,104 +987,21 @@
   let lastDraw = null;
   let lastPaintedPoint = null;
 
-  function setCell(layer,x,y,color){
-    if(x<0||x>=GRID_W||y<0||y>=GRID_H) return;
-    layer.data[y*GRID_W+x] = color;
-  }
-
-  function setCellMirror(layer,x,y,color){
-    setCell(layer,x,y,color);
-    if(mirrorX) setCell(layer,GRID_W-1-x,y,color);
-    if(mirrorY) setCell(layer,x,GRID_H-1-y,color);
-    if(mirrorX && mirrorY) setCell(layer,GRID_W-1-x,GRID_H-1-y,color);
-  }
-
-  function brushExtent(size){
-    const r0 = Math.floor((size-1)/2);
-    const r1 = size-1-r0;
-    return [r0,r1];
-  }
-
-  function brush(layer,x,y,color,size){
-    const [r0,r1] = brushExtent(size);
-    for(let dy=-r0; dy<=r1; dy++){
-      for(let dx=-r0; dx<=r1; dx++){
-        setCellMirror(layer,x+dx,y+dy,color);
-      }
-    }
-  }
-
-  function drawLineThick(layer,x0,y0,x1,y1,color,size){
-    let dx = Math.abs(x1-x0), sx = x0<x1 ? 1 : -1;
-    let dy = -Math.abs(y1-y0), sy = y0<y1 ? 1 : -1;
-    let err = dx+dy;
-    while(true){
-      brush(layer,x0,y0,color,size);
-      if(x0===x1 && y0===y1) break;
-      const e2 = 2*err;
-      if(e2 >= dy){ err += dy; x0 += sx; }
-      if(e2 <= dx){ err += dx; y0 += sy; }
-    }
-  }
-
-  function drawEllipse(layer,x0,y0,x1,y1,color,size){
-    const cx = (x0+x1)/2, cy = (y0+y1)/2;
-    const rx = Math.abs(x1-x0)/2, ry = Math.abs(y1-y0)/2;
-    if(rx < 0.5 && ry < 0.5){ brush(layer,x0,y0,color,size); return; }
-    const steps = Math.max(32, Math.round((rx+ry)*4));
-    let px = null, py = null;
-    for(let i=0;i<=steps;i++){
-      const t = (i/steps) * Math.PI * 2;
-      const x = Math.round(cx + rx*Math.cos(t));
-      const y = Math.round(cy + ry*Math.sin(t));
-      if(px !== null) drawLineThick(layer,px,py,x,y,color,size);
-      else brush(layer,x,y,color,size);
-      px = x; py = y;
-    }
-  }
-
   function drawShape(x0,y0,x1,y1){
-    const layer = getActiveLayer(currentDir);
+    const layer = engine.getActiveLayer(engine.currentDir);
     const color = pointerErasing ? 'transparent' : selectedColor;
     if(tool === 'line'){
-      drawLineThick(layer,x0,y0,x1,y1,color,brushSize);
+      engine.drawLine(layer,x0,y0,x1,y1,color,brushSize);
     } else if(tool === 'rect'){
-      const xa = Math.min(x0,x1), xb = Math.max(x0,x1);
-      const ya = Math.min(y0,y1), yb = Math.max(y0,y1);
-      for(let x=xa;x<=xb;x++){ brush(layer,x,ya,color,brushSize); brush(layer,x,yb,color,brushSize); }
-      for(let y=ya;y<=yb;y++){ brush(layer,xa,y,color,brushSize); brush(layer,xb,y,color,brushSize); }
+      engine.drawRectOutline(layer,x0,y0,x1,y1,color,brushSize);
     } else if(tool === 'ellipse'){
-      drawEllipse(layer,x0,y0,x1,y1,color,brushSize);
+      engine.drawEllipse(layer,x0,y0,x1,y1,color,brushSize);
     }
-  }
-
-  function floodFillFrom(x,y,color,data){
-    const target = data[y*GRID_W+x];
-    if(target===color) return;
-    const stack = [[x,y]];
-    while(stack.length){
-      const c = stack.pop();
-      const cx = c[0], cy = c[1];
-      if(cx<0||cx>=GRID_W||cy<0||cy>=GRID_H) continue;
-      const idx = cy*GRID_W+cx;
-      if(data[idx]!==target) continue;
-      data[idx] = color;
-      stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
-    }
-  }
-
-  function floodFill(x,y,color){
-    const layer = getActiveLayer(currentDir);
-    floodFillFrom(x,y,color,layer.data);
-    if(mirrorX) floodFillFrom(GRID_W-1-x, y, color, layer.data);
-    if(mirrorY) floodFillFrom(x, GRID_H-1-y, color, layer.data);
-    if(mirrorX && mirrorY) floodFillFrom(GRID_W-1-x, GRID_H-1-y, color, layer.data);
   }
 
   function pickColor(x,y){
-    const data = compositeArray(currentDir);
-    const c = data[y*GRID_W+x];
-    if(c && c!=='transparent'){
+    const c = engine.pickColorAt(engine.currentDir, x, y);
+    if(c){
       selectedColor = c;
       setTool('pen');
       renderPalette();
@@ -1174,14 +1010,14 @@
   }
 
   function paintAt(x,y,isStart){
-    const layer = getActiveLayer(currentDir);
+    const layer = engine.getActiveLayer(engine.currentDir);
     const color = (tool==='eraser' || pointerErasing) ? 'transparent' : selectedColor;
     if(tool==='pen' || tool==='eraser'){
       if(isStart) lastDraw = null;
       if(lastDraw){
-        drawLineThick(layer,lastDraw[0],lastDraw[1],x,y,color,brushSize);
+        engine.drawLine(layer,lastDraw[0],lastDraw[1],x,y,color,brushSize);
       } else {
-        brush(layer,x,y,color,brushSize);
+        engine.brush(layer,x,y,color,brushSize);
       }
       lastDraw = [x,y];
     }
@@ -1199,7 +1035,7 @@
   }
 
   function outOfBounds(x,y){
-    return x<0 || x>=GRID_W || y<0 || y>=GRID_H;
+    return x<0 || x>=engine.gridW || y<0 || y>=engine.gridH;
   }
 
   function canvasPointerDown(e){
@@ -1222,28 +1058,28 @@
       return;
     }
     if(tool === 'fill'){
-      pushUndo();
-      floodFill(p[0],p[1], pointerErasing ? 'transparent' : selectedColor);
+      engine.pushUndo();
+      engine.floodFill(engine.getActiveLayer(engine.currentDir), p[0], p[1], pointerErasing ? 'transparent' : selectedColor);
       uiDirty = true;
       render();
       return;
     }
 
     pointerActive = true;
-    pushUndo();
+    engine.pushUndo();
     strokeHasUndo = true;
 
     if(tool === 'line' || tool === 'rect' || tool === 'ellipse'){
-      shapeBaseData = getActiveLayer(currentDir).data.slice();
+      shapeBaseData = engine.getActiveLayer(engine.currentDir).data.slice();
       shapeStart = [p[0],p[1]];
       drawShape(p[0],p[1],p[0],p[1]);
     } else {
       shapeBaseData = null;
       shapeStart = null;
       if(e.shiftKey && lastPaintedPoint){
-        const layer = getActiveLayer(currentDir);
+        const layer = engine.getActiveLayer(engine.currentDir);
         const color = (tool==='eraser') ? 'transparent' : selectedColor;
-        drawLineThick(layer, lastPaintedPoint[0], lastPaintedPoint[1], p[0], p[1], color, brushSize);
+        engine.drawLine(layer, lastPaintedPoint[0], lastPaintedPoint[1], p[0], p[1], color, brushSize);
         lastDraw = [p[0],p[1]];
       } else {
         lastDraw = null;
@@ -1263,7 +1099,7 @@
       if(tool === 'picker'){
         pickColor(p[0],p[1]);
       } else if(tool === 'line' || tool === 'rect' || tool === 'ellipse'){
-        const layer = getActiveLayer(currentDir);
+        const layer = engine.getActiveLayer(engine.currentDir);
         layer.data = shapeBaseData.slice();
         drawShape(shapeStart[0], shapeStart[1], p[0], p[1]);
       } else {
@@ -1290,9 +1126,7 @@
 
   function cancelStroke(){
     if(!pointerActive) return;
-    if(strokeHasUndo && undoStack.length){
-      frames[currentDir] = undoStack.pop();
-    }
+    if(strokeHasUndo) engine.discardLastUndo();
     pointerActive = false;
     shapeBaseData = null;
     shapeStart = null;
@@ -1386,8 +1220,8 @@
     document.querySelectorAll('.tool[data-brush]').forEach(b=>{
       b.classList.toggle('active', parseInt(b.dataset.brush,10) === brushSize);
     });
-    document.getElementById('mirrorX').classList.toggle('mirror-on', mirrorX);
-    document.getElementById('mirrorY').classList.toggle('mirror-on', mirrorY);
+    document.getElementById('mirrorX').classList.toggle('mirror-on', engine.mirrorX);
+    document.getElementById('mirrorY').classList.toggle('mirror-on', engine.mirrorY);
     document.getElementById('gridToggle').textContent = 'Grid: ' + (showGrid ? 'On' : 'Off') + ' G';
   }
 
@@ -1411,20 +1245,19 @@
   document.getElementById('redoBtn').addEventListener('click', redo);
 
   document.getElementById('clearBtn').addEventListener('click', ()=>{
-    pushUndo();
-    const layer = getActiveLayer(currentDir);
-    layer.data = newLayerData();
+    engine.pushUndo();
+    engine.clearActiveLayerData(engine.currentDir);
     uiDirty = true;
     render();
   });
 
   function toggleMirrorX(){
-    mirrorX = !mirrorX;
+    engine.mirrorX = !engine.mirrorX;
     updateToolButtons();
     render();
   }
   function toggleMirrorY(){
-    mirrorY = !mirrorY;
+    engine.mirrorY = !engine.mirrorY;
     updateToolButtons();
     render();
   }
@@ -1504,18 +1337,15 @@
   /* ============ clipboard ============ */
 
   function copyLayer(){
-    const f = ensureFrameDir(currentDir);
-    clipboardData = { data: getActiveLayer(currentDir).data.slice() };
+    const f = engine.ensureFrameDir(engine.currentDir);
+    clipboardData = { data: engine.getActiveLayer(engine.currentDir).data.slice() };
     flashMsg('Copied: ' + f.layers[f.active].name);
   }
 
   function pasteLayer(){
     if(!clipboardData) { flashMsg('ไม่มี layer ในคลิปบอร์ด'); return; }
-    const f = ensureFrameDir(currentDir);
-    pushUndo();
-    const layer = { id: ++layerIdCounter, name: 'Pasted', visible: true, data: clipboardData.data.slice() };
-    f.layers.push(layer);
-    f.active = f.layers.length-1;
+    engine.pushUndo();
+    engine.pasteLayerData(engine.currentDir, clipboardData.data, 'Pasted');
     markUI();
     render();
     flashMsg('Pasted layer');
@@ -1533,29 +1363,22 @@
     wrap.innerHTML = '';
     DIRS.forEach(d=>{
       const btn = document.createElement('button');
-      btn.className = 'dir-tab' + (d.key===currentDir ? ' active' : '') + (isEmpty(d.key) ? ' empty' : '');
+      btn.className = 'dir-tab' + (d.key===engine.currentDir ? ' active' : '') + (engine.isEmpty(d.key) ? ' empty' : '');
       btn.innerHTML = d.label + ' <span class="dot"></span>';
-      btn.title = isEmpty(d.key) ? 'ยังว่างอยู่' : 'มีข้อมูลแล้ว';
-      btn.onclick = ()=>{ currentDir = d.key; markUI(); render(); };
+      btn.title = engine.isEmpty(d.key) ? 'ยังว่างอยู่' : 'มีข้อมูลแล้ว';
+      btn.onclick = ()=>{ engine.setCurrentDir(d.key); markUI(); render(); };
       wrap.appendChild(btn);
     });
   }
 
-  function isEmpty(dir){
-    const f = frames[dir];
-    if(!f) return true;
-    return f.layers.every(l => l.data.every(c=> !c || c==='transparent'));
-  }
-
   function updateInfo(){
     document.getElementById('currentDirLabel').textContent =
-      DIRS.find(d=>d.key===currentDir).label;
-    const filled = DIRS.filter(d=>!isEmpty(d.key)).length;
-    document.getElementById('filledCount').textContent = filled;
+      DIRS.find(d=>d.key===engine.currentDir).label;
+    document.getElementById('filledCount').textContent = engine.filledDirCount();
   }
 
   function renderLayers(){
-    const f = ensureFrameDir(currentDir);
+    const f = engine.ensureFrameDir(engine.currentDir);
     const list = document.getElementById('layerList');
     list.innerHTML = '';
     for(let i=f.layers.length-1; i>=0; i--){
@@ -1567,14 +1390,13 @@
       moveUp.className = 'eye';
       moveUp.style.fontSize = '9px';
       moveUp.style.opacity = (i>=f.layers.length-1) ? '.3' : '.85';
-      moveUp.textContent = '\u25B2';
+      moveUp.textContent = '▲';
       moveUp.title = 'ย้ายขึ้น';
       moveUp.onclick = (ev)=>{
         ev.stopPropagation();
         if(i>=f.layers.length-1) return;
-        pushUndo();
-        const tmp = f.layers[i]; f.layers[i] = f.layers[i+1]; f.layers[i+1] = tmp;
-        if(f.active===i) f.active=i+1; else if(f.active===i+1) f.active=i;
+        engine.pushUndo();
+        engine.moveLayer(engine.currentDir, i, 1);
         uiDirty = true;
         render();
       };
@@ -1583,25 +1405,24 @@
       moveDown.className = 'eye';
       moveDown.style.fontSize = '9px';
       moveDown.style.opacity = (i<=0) ? '.3' : '.85';
-      moveDown.textContent = '\u25BC';
+      moveDown.textContent = '▼';
       moveDown.title = 'ย้ายลง';
       moveDown.onclick = (ev)=>{
         ev.stopPropagation();
         if(i<=0) return;
-        pushUndo();
-        const tmp = f.layers[i]; f.layers[i] = f.layers[i-1]; f.layers[i-1] = tmp;
-        if(f.active===i) f.active=i-1; else if(f.active===i-1) f.active=i;
+        engine.pushUndo();
+        engine.moveLayer(engine.currentDir, i, -1);
         uiDirty = true;
         render();
       };
 
       const eye = document.createElement('span');
       eye.className = 'eye' + (layer.visible ? '' : ' off');
-      eye.textContent = layer.visible ? '\u25CF' : '\u25CB';
+      eye.textContent = layer.visible ? '●' : '○';
       eye.title = layer.visible ? 'ซ่อน layer นี้' : 'แสดง layer นี้';
       eye.onclick = (ev)=>{
         ev.stopPropagation();
-        layer.visible = !layer.visible;
+        engine.toggleLayerVisibility(engine.currentDir, i);
         uiDirty = true;
         render();
       };
@@ -1613,34 +1434,34 @@
       name.ondblclick = (ev)=>{
         ev.stopPropagation();
         const n = prompt('ชื่อ layer:', layer.name);
-        if(n && n.trim()){ layer.name = n.trim(); uiDirty = true; render(); }
+        if(n && engine.renameLayer(engine.currentDir, i, n)){
+          uiDirty = true;
+          render();
+        }
       };
 
       const dup = document.createElement('span');
       dup.className = 'del';
       dup.style.color = 'var(--accent)';
-      dup.textContent = '\u29C9';
+      dup.textContent = '⧉';
       dup.title = 'ทำสำเนา layer นี้';
       dup.onclick = (ev)=>{
         ev.stopPropagation();
-        pushUndo();
-        const copy = { id: ++layerIdCounter, name: layer.name + ' copy', visible: layer.visible, data: layer.data.slice() };
-        f.layers.splice(i+1, 0, copy);
-        f.active = i+1;
+        engine.pushUndo();
+        engine.duplicateLayer(engine.currentDir, i);
         uiDirty = true;
         render();
       };
 
       const del = document.createElement('span');
       del.className = 'del';
-      del.textContent = '\u2715';
+      del.textContent = '✕';
       del.title = 'ลบ layer นี้';
       del.onclick = (ev)=>{
         ev.stopPropagation();
         if(f.layers.length <= 1) return;
-        pushUndo();
-        f.layers.splice(i,1);
-        if(f.active >= f.layers.length) f.active = f.layers.length-1;
+        engine.pushUndo();
+        engine.deleteLayer(engine.currentDir, i);
         uiDirty = true;
         render();
       };
@@ -1651,27 +1472,24 @@
       row.appendChild(name);
       row.appendChild(dup);
       row.appendChild(del);
-      row.onclick = ()=>{ f.active = i; uiDirty = true; render(); };
+      row.onclick = ()=>{ engine.setActiveLayerIndex(engine.currentDir, i); uiDirty = true; render(); };
 
       list.appendChild(row);
     }
   }
 
   document.getElementById('addLayerBtn').addEventListener('click', ()=>{
-    const f = ensureFrameDir(currentDir);
-    pushUndo();
-    f.layers.push(newLayer());
-    f.active = f.layers.length-1;
+    engine.pushUndo();
+    engine.addLayer(engine.currentDir);
     uiDirty = true;
     render();
   });
 
   document.getElementById('delLayerBtn').addEventListener('click', ()=>{
-    const f = ensureFrameDir(currentDir);
+    const f = engine.ensureFrameDir(engine.currentDir);
     if(f.layers.length <= 1) return;
-    pushUndo();
-    f.layers.splice(f.active,1);
-    if(f.active >= f.layers.length) f.active = f.layers.length-1;
+    engine.pushUndo();
+    engine.deleteLayer(engine.currentDir, f.active);
     uiDirty = true;
     render();
   });
@@ -1679,7 +1497,7 @@
   function renderPalette(){
     const grid = document.getElementById('paletteGrid');
     grid.innerHTML = '';
-    palette.forEach(c=>{
+    engine.palette.forEach(c=>{
       const sw = document.createElement('div');
       sw.className = 'swatch' + (c==='transparent' ? ' transparent' : '') + (c===selectedColor ? ' selected' : '');
       if(c !== 'transparent') sw.style.background = c;
@@ -1707,7 +1525,7 @@
 
   document.getElementById('colorPicker').addEventListener('input', (e)=>{
     const c = e.target.value;
-    if(!palette.includes(c)) palette.push(c);
+    engine.addPaletteColor(c);
     selectedColor = c;
     setTool('pen');
     renderPalette();
@@ -1734,19 +1552,15 @@
     const h = clampInt(parseInt(sizeH.value,10), 1, 256);
     sizeW.value = w;
     sizeH.value = h;
-    if(w === GRID_W && h === GRID_H) return;
+    if(w === engine.gridW && h === engine.gridH) return;
 
-    const hasData = DIRS.some(d=>!isEmpty(d.key));
+    const hasData = DIRS.some(d=>!engine.isEmpty(d.key));
     if(hasData){
       const ok = confirm('เปลี่ยนขนาด canvas จะล้างข้อมูลทุกทิศทางที่วาดไว้ และไม่สามารถ Undo ได้\nต้องการดำเนินการต่อไหม?');
       if(!ok) return;
     }
 
-    GRID_W = w;
-    GRID_H = h;
-    DIRS.forEach(d=>{ frames[d.key] = { layers:[newLayer('Layer 1')], active:0 }; });
-    undoStack = [];
-    redoStack = [];
+    engine.resize(w, h);
     document.getElementById('fileMeta').textContent = '';
     resizeCanvas();
     markUI();
@@ -1786,10 +1600,10 @@
       alert('ขนาดภาพต้องอยู่ระหว่าง 1×1 ถึง 512×512 พิกเซล');
       return;
     }
-    const sizeChanged = (w!==GRID_W || h!==GRID_H);
-    const otherFramesHaveData = DIRS.some(d => d.key!==currentDir && !isEmpty(d.key));
+    const sizeChanged = (w!==engine.gridW || h!==engine.gridH);
+    const otherFramesHaveData = DIRS.some(d => d.key!==engine.currentDir && !engine.isEmpty(d.key));
     if(sizeChanged && otherFramesHaveData){
-      const ok = confirm('ไฟล์นี้ขนาด ' + w + '×' + h + ' ไม่ตรงกับ canvas ปัจจุบัน (' + GRID_W + '×' + GRID_H + ')\nการเปิดไฟล์จะล้างเฟรมทิศทางอื่นที่วาดไว้ทั้งหมด ต้องการดำเนินการต่อไหม?');
+      const ok = confirm('ไฟล์นี้ขนาด ' + w + '×' + h + ' ไม่ตรงกับ canvas ปัจจุบัน (' + engine.gridW + '×' + engine.gridH + ')\nการเปิดไฟล์จะล้างเฟรมทิศทางอื่นที่วาดไว้ทั้งหมด ต้องการดำเนินการต่อไหม?');
       if(!ok) return;
     }
 
@@ -1799,39 +1613,12 @@
     octx.imageSmoothingEnabled = false;
     octx.drawImage(img, 0, 0, w, h);
     const imgData = octx.getImageData(0,0,w,h).data;
+    const colors = PixelEngine.decodeRGBAToColors(imgData, w, h);
 
-    if(sizeChanged){
-      GRID_W = w; GRID_H = h;
-      DIRS.forEach(d=>{ frames[d.key] = { layers:[newLayer('Layer 1')], active:0 }; });
-      undoStack = [];
-      redoStack = [];
-    }
+    engine.importColorsAsLayer(engine.currentDir, w, h, colors, fileName.replace(/\.[^.]+$/,''));
 
-    const newData = new Array(w*h).fill('transparent');
-    const seenColors = new Set(palette);
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
-        const idx = (y*w+x)*4;
-        const a = imgData[idx+3];
-        if(a===0){
-          newData[y*w+x] = 'transparent';
-        } else {
-          const hex = '#' + [imgData[idx],imgData[idx+1],imgData[idx+2]]
-            .map(v=>v.toString(16).padStart(2,'0')).join('');
-          newData[y*w+x] = hex;
-          if(!seenColors.has(hex)){ seenColors.add(hex); palette.push(hex); }
-        }
-      }
-    }
-
-    const f = ensureFrameDir(currentDir);
-    f.layers.push({ id: ++layerIdCounter, name: fileName.replace(/\.[^.]+$/,''), visible: true, data: newData });
-    f.active = f.layers.length-1;
-    undoStack = [];
-    redoStack = [];
-
-    sizeW.value = w;
-    sizeH.value = h;
+    sizeW.value = engine.gridW;
+    sizeH.value = engine.gridH;
     presetSize.value = '';
     document.getElementById('fileMeta').textContent = fileName + ' — ' + w + '×' + h + 'px';
     resizeCanvas();
@@ -1841,13 +1628,13 @@
   /* ============ export ============ */
 
   function frameToCanvas(dirKey, scale){
-    const data = compositeArray(dirKey);
+    const data = engine.compositeArray(dirKey);
     const c = document.createElement('canvas');
-    c.width = GRID_W*scale; c.height = GRID_H*scale;
+    c.width = engine.gridW*scale; c.height = engine.gridH*scale;
     const cx = c.getContext('2d');
-    for(let y=0;y<GRID_H;y++){
-      for(let x=0;x<GRID_W;x++){
-        const col = data[y*GRID_W+x];
+    for(let y=0;y<engine.gridH;y++){
+      for(let x=0;x<engine.gridW;x++){
+        const col = data[y*engine.gridW+x];
         if(col && col!=='transparent'){
           cx.fillStyle = col;
           cx.fillRect(x*scale,y*scale,scale,scale);
@@ -1858,17 +1645,17 @@
   }
 
   document.getElementById('exportFrame').addEventListener('click', ()=>{
-    const c = frameToCanvas(currentDir, 4);
+    const c = frameToCanvas(engine.currentDir, 4);
     const a = document.createElement('a');
-    a.download = 'sprite_' + currentDir + '.png';
+    a.download = 'sprite_' + engine.currentDir + '.png';
     a.href = c.toDataURL('image/png');
     a.click();
   });
 
   document.getElementById('exportSheet').addEventListener('click', ()=>{
     const scale = 4;
-    const cellW = GRID_W*scale;
-    const cellH = GRID_H*scale;
+    const cellW = engine.gridW*scale;
+    const cellH = engine.gridH*scale;
     const sheet = document.createElement('canvas');
     sheet.width = cellW*4;
     sheet.height = cellH;
@@ -1916,15 +1703,7 @@
 
   function doAutosave(){
     try{
-      const payload = { v:1, gridW:GRID_W, gridH:GRID_H, palette:palette, currentDir:currentDir, frames:{} };
-      DIRS.forEach(d=>{
-        const f = frames[d.key];
-        payload.frames[d.key] = {
-          active: f.active,
-          layers: f.layers.map(l=>({ name:l.name, visible:l.visible, data:l.data }))
-        };
-      });
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(engine.serialize()));
     }catch(err){ /* storage unavailable or full — skip silently */ }
   }
 
@@ -1934,39 +1713,16 @@
     if(!raw) return false;
     let payload;
     try{ payload = JSON.parse(raw); }catch(err){ return false; }
-    if(!payload || !payload.frames || !payload.gridW || !payload.gridH) return false;
-
-    GRID_W = clampInt(payload.gridW, 1, 256);
-    GRID_H = clampInt(payload.gridH, 1, 256);
-    if(Array.isArray(payload.palette) && payload.palette.length) palette = payload.palette;
-
-    let restoredAny = false;
-    DIRS.forEach(d=>{
-      const fd = payload.frames[d.key];
-      const cellCount = GRID_W*GRID_H;
-      const layers = (fd && Array.isArray(fd.layers) ? fd.layers : [])
-        .filter(l=>Array.isArray(l.data) && l.data.length===cellCount)
-        .map(l=>({ id: ++layerIdCounter, name:l.name||'Layer', visible:l.visible!==false, data:l.data }));
-      if(layers.length){
-        frames[d.key] = { active: Math.min(fd.active||0, layers.length-1), layers: layers };
-        restoredAny = true;
-      }
-    });
-    if(!restoredAny) return false;
-
-    if(payload.currentDir && DIRS.some(d=>d.key===payload.currentDir)) currentDir = payload.currentDir;
-    return true;
+    return engine.loadSerialized(payload);
   }
 
   document.getElementById('newBtn').addEventListener('click', ()=>{
     const ok = confirm('เริ่มโปรเจกต์ใหม่? การกระทำนี้จะล้างทุกทิศทาง เลเยอร์ และข้อมูลที่บันทึกอัตโนมัติไว้ ไม่สามารถย้อนกลับได้');
     if(!ok) return;
     try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(err){}
-    GRID_W = 32; GRID_H = 32;
-    DIRS.forEach(d=>{ frames[d.key] = { layers:[newLayer('Layer 1')], active:0 }; });
-    undoStack = []; redoStack = [];
-    currentDir = 'down';
-    palette = ['transparent','#2a1e18','#f7c8a6','#dea882','#36261e','#f0f0eb','#cccccb','#3c5fa0','#283759','#2d201a','#4b8de0','#e0a24b'];
+    engine.resize(32, 32);
+    engine.setCurrentDir('down');
+    engine.palette = PixelEngine.DEFAULT_PALETTE.slice();
     selectedColor = '#f7c8a6';
     document.getElementById('sizeW').value = 32;
     document.getElementById('sizeH').value = 32;
@@ -1979,11 +1735,10 @@
 
   /* ============ init ============ */
 
-  DIRS.forEach(d=>{ frames[d.key] = { layers:[newLayer('Layer 1')], active:0 }; });
   const restored = loadAutosave();
-  document.getElementById('sizeW').value = GRID_W;
-  document.getElementById('sizeH').value = GRID_H;
-  document.getElementById('presetSize').value = [16,24,32,48,64,96,128].includes(GRID_W) && GRID_W===GRID_H ? String(GRID_W) : '';
+  document.getElementById('sizeW').value = engine.gridW;
+  document.getElementById('sizeH').value = engine.gridH;
+  document.getElementById('presetSize').value = [16,24,32,48,64,96,128].includes(engine.gridW) && engine.gridW===engine.gridH ? String(engine.gridW) : '';
   updateViewportSize();
   resizeCanvas();
   refreshUI();

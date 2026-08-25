@@ -1,0 +1,9 @@
+{
+  "name": "sprite-forge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sprite Forge pixel art editor — pixel-engine.js (drawing/data core) + pixel_editor.html (UI)",
+  "scripts": {
+    "test": "node --test"
+  }
+}
