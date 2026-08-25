@@ -203,7 +203,12 @@
     transition:all .12s;
   }
   .icon-btn:hover{ border-color:var(--accent); }
-  #zoomLabel{
+  .icon-btn.mirror-on{
+    background:var(--accent-2);
+    color:#0e1116;
+    border-color:var(--accent-2);
+  }
+  #zoomLabel, #canvasSizeBadge{
     min-width:52px;
     text-align:center;
     background:var(--panel-2);
@@ -214,6 +219,78 @@
     font-size:11px;
     padding:7px 6px;
     cursor:default;
+  }
+  #canvasSizeBadge{
+    color:var(--text);
+    font-weight:700;
+  }
+
+  /* ---- Canvas background preview picker ---- */
+  .canvas-bg-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin:10px auto 0;
+    width:max-content;
+    max-width:100%;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .canvas-bg-row .label{
+    font-size:10px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    font-weight:700;
+  }
+  .canvas-bg-row .hint{
+    width:100%;
+    text-align:center;
+  }
+  .bg-swatch{
+    width:22px; height:22px;
+    border-radius:6px;
+    border:2px solid var(--line);
+    cursor:pointer;
+    padding:0;
+    transition:transform .1s;
+  }
+  .bg-swatch:hover{ transform:scale(1.1); }
+  .bg-swatch.active{
+    border-color:var(--accent);
+    box-shadow:0 0 0 2px rgba(107,159,222,.35);
+  }
+  .bg-swatch.bg-dark{
+    background:
+      linear-gradient(45deg, #1b2129 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(-45deg, #1b2129 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(45deg, transparent 75%, #1b2129 75%) 0 0/10px 10px,
+      linear-gradient(-45deg, transparent 75%, #1b2129 75%) 0 0/10px 10px,
+      #141920;
+  }
+  .bg-swatch.bg-white{
+    background:
+      linear-gradient(45deg, #ffffff 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(-45deg, #ffffff 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(45deg, transparent 75%, #ffffff 75%) 0 0/10px 10px,
+      linear-gradient(-45deg, transparent 75%, #ffffff 75%) 0 0/10px 10px,
+      #e8e8e8;
+  }
+  .bg-swatch.bg-gray{
+    background:
+      linear-gradient(45deg, #8a8a8a 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(-45deg, #8a8a8a 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(45deg, transparent 75%, #8a8a8a 75%) 0 0/10px 10px,
+      linear-gradient(-45deg, transparent 75%, #8a8a8a 75%) 0 0/10px 10px,
+      #7a7a7a;
+  }
+  .bg-swatch.bg-green{
+    background:
+      linear-gradient(45deg, #3aa655 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(-45deg, #3aa655 25%, transparent 25%) 0 0/10px 10px,
+      linear-gradient(45deg, transparent 75%, #3aa655 75%) 0 0/10px 10px,
+      linear-gradient(-45deg, transparent 75%, #3aa655 75%) 0 0/10px 10px,
+      #2f8f47;
   }
 
   /* ---- Tool rows ---- */
@@ -601,12 +678,25 @@
     </div>
 
     <div class="zoom-row">
+      <div id="canvasSizeBadge" title="ขนาด canvas ปัจจุบัน">32×32</div>
+      <div class="sep"></div>
       <button class="icon-btn" id="zoomOut" title="Zoom out (-)">−</button>
       <div id="zoomLabel">100%</div>
       <button class="icon-btn" id="zoomIn" title="Zoom in (+)">+</button>
       <div class="sep"></div>
       <button class="tool" id="zoomFit" title="Fit to window (0)">Fit</button>
       <button class="tool" id="zoom100" title="Actual size (1)">100%</button>
+      <div class="sep"></div>
+      <button class="icon-btn" id="zoomLockBtn" title="ล็อกซูม กันมือไปโดนสกรอลล์">🔓</button>
+    </div>
+
+    <div class="canvas-bg-row" id="canvasBgRow">
+      <span class="label">พื้นหลัง</span>
+      <button class="bg-swatch bg-dark active" data-bg="dark" title="มืด (ค่าเริ่มต้น)"></button>
+      <button class="bg-swatch bg-white" data-bg="white" title="ขาว"></button>
+      <button class="bg-swatch bg-gray" data-bg="gray" title="เทากลาง"></button>
+      <button class="bg-swatch bg-green" data-bg="green" title="เขียว"></button>
+      <span class="hint" style="margin:0;">สำหรับดูตัวอย่างเท่านั้น ไม่กระทบไฟล์ที่ export</span>
     </div>
 
     <div class="tool-row">
@@ -772,6 +862,15 @@
   let zoom = 1;
   let viewW = MAX_VIEW, viewH = MAX_VIEW;
   let panX = 0, panY = 0;
+  let zoomLocked = false;
+
+  const CANVAS_BG_PRESETS = {
+    dark:  { c1:'#1b2129', c2:'#141920' },
+    white: { c1:'#ffffff', c2:'#e8e8e8' },
+    gray:  { c1:'#8a8a8a', c2:'#7a7a7a' },
+    green: { c1:'#3aa655', c2:'#2f8f47' },
+  };
+  let canvasBg = 'dark';
 
   let clipboardData = null;
 
@@ -868,6 +967,7 @@
     const sf = Math.max(1, Math.floor(maxPreview / Math.max(engine.gridW, engine.gridH)));
     previewCanvas.style.width = (engine.gridW*sf) + 'px';
     previewCanvas.style.height = (engine.gridH*sf) + 'px';
+    document.getElementById('canvasSizeBadge').textContent = engine.gridW + '×' + engine.gridH;
     resetView();
   }
 
@@ -1198,6 +1298,7 @@
 
   viewport.addEventListener('wheel', (e)=>{
     e.preventDefault();
+    if(zoomLocked) return;
     const rect = viewport.getBoundingClientRect();
     const cx = e.clientX - rect.left;
     const cy = e.clientY - rect.top;
@@ -1279,6 +1380,39 @@
     clampPan();
     applyTransform();
     render();
+  });
+
+  function updateZoomLockButton(){
+    const btn = document.getElementById('zoomLockBtn');
+    btn.textContent = zoomLocked ? '🔒' : '🔓';
+    btn.classList.toggle('mirror-on', zoomLocked);
+    btn.title = zoomLocked ? 'ปลดล็อกซูม' : 'ล็อกซูม กันมือไปโดนสกรอลล์';
+  }
+
+  function toggleZoomLock(){
+    zoomLocked = !zoomLocked;
+    updateZoomLockButton();
+    savePrefs();
+    flashMsg(zoomLocked ? 'ล็อกซูมแล้ว — สกรอลล์จะไม่ซูม' : 'ปลดล็อกซูมแล้ว');
+  }
+
+  document.getElementById('zoomLockBtn').addEventListener('click', toggleZoomLock);
+
+  function applyCanvasBg(key){
+    const preset = CANVAS_BG_PRESETS[key] || CANVAS_BG_PRESETS.dark;
+    document.documentElement.style.setProperty('--checker-1', preset.c1);
+    document.documentElement.style.setProperty('--checker-2', preset.c2);
+    canvasBg = CANVAS_BG_PRESETS[key] ? key : 'dark';
+    document.querySelectorAll('.bg-swatch').forEach(b=>{
+      b.classList.toggle('active', b.dataset.bg === canvasBg);
+    });
+  }
+
+  document.querySelectorAll('.bg-swatch').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      applyCanvasBg(b.dataset.bg);
+      savePrefs();
+    });
   });
 
   /* ============ keyboard ============ */
@@ -1716,6 +1850,24 @@
     return engine.loadSerialized(payload);
   }
 
+  /* ============ UI preferences (not artwork — kept separate from autosave) ============ */
+
+  const PREFS_KEY = 'spriteforge_prefs_v1';
+
+  function savePrefs(){
+    try{
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ canvasBg, zoomLocked }));
+    }catch(err){ /* storage unavailable — skip silently */ }
+  }
+
+  function loadPrefs(){
+    try{
+      const raw = localStorage.getItem(PREFS_KEY);
+      if(!raw) return {};
+      return JSON.parse(raw) || {};
+    }catch(err){ return {}; }
+  }
+
   document.getElementById('newBtn').addEventListener('click', ()=>{
     const ok = confirm('เริ่มโปรเจกต์ใหม่? การกระทำนี้จะล้างทุกทิศทาง เลเยอร์ และข้อมูลที่บันทึกอัตโนมัติไว้ ไม่สามารถย้อนกลับได้');
     if(!ok) return;
@@ -1734,6 +1886,10 @@
   });
 
   /* ============ init ============ */
+
+  const prefs = loadPrefs();
+  applyCanvasBg(prefs.canvasBg || 'dark');
+  if(typeof prefs.zoomLocked === 'boolean'){ zoomLocked = prefs.zoomLocked; updateZoomLockButton(); }
 
   const restored = loadAutosave();
   document.getElementById('sizeW').value = engine.gridW;
