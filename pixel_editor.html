@@ -181,6 +181,15 @@
     z-index:3;
     box-shadow:0 0 0 1px rgba(0,0,0,.25);
   }
+  #selectionBox{
+    position:absolute;
+    display:none;
+    pointer-events:none;
+    border:1.5px dashed var(--accent-2);
+    background:rgba(240,180,85,.12);
+    z-index:4;
+    box-shadow:0 0 0 1px rgba(0,0,0,.4);
+  }
 
   .zoom-row{
     display:flex;
@@ -673,6 +682,7 @@
         <canvas id="pixelCanvas"></canvas>
         <div id="mirrorLineX"></div>
         <div id="mirrorLineY"></div>
+        <div id="selectionBox"></div>
         <div id="hoverCell"></div>
       </div>
     </div>
@@ -704,6 +714,7 @@
       <button class="tool" id="toolEraser" data-tool="eraser">Eraser <kbd>E</kbd></button>
       <button class="tool" id="toolFill" data-tool="fill">Fill <kbd>F</kbd></button>
       <button class="tool" id="toolPicker" data-tool="picker">Picker <kbd>I</kbd></button>
+      <button class="tool" id="toolSelect" data-tool="select">Select <kbd>S</kbd></button>
     </div>
     <div class="tool-row">
       <button class="tool" id="toolLine" data-tool="line">Line <kbd>L</kbd></button>
@@ -856,12 +867,13 @@
     <div class="help-grid">
       <span class="keys"><kbd>B</kbd> <kbd>E</kbd> <kbd>F</kbd> <kbd>I</kbd></span><span class="desc">Pen · Eraser · Fill · Picker</span>
       <span class="keys"><kbd>L</kbd> <kbd>R</kbd> <kbd>O</kbd></span><span class="desc">Line · Rectangle · Ellipse</span>
+      <span class="keys"><kbd>S</kbd></span><span class="desc">Select — ลากเลือกพื้นที่สี่เหลี่ยม</span>
       <span class="keys"><kbd>[</kbd> <kbd>]</kbd></span><span class="desc">ลด / เพิ่มขนาดแปรง</span>
       <span class="keys"><kbd>M</kbd> <kbd>⇧M</kbd></span><span class="desc">Mirror X · Mirror Y</span>
       <span class="keys"><kbd>G</kbd></span><span class="desc">เปิด/ปิด grid</span>
       <span class="keys"><kbd>⌘Z</kbd></span><span class="desc">Undo</span>
       <span class="keys"><kbd>⇧⌘Z</kbd> / <kbd>⌘Y</kbd></span><span class="desc">Redo</span>
-      <span class="keys"><kbd>⌘C</kbd> <kbd>⌘V</kbd></span><span class="desc">คัดลอก / วาง layer</span>
+      <span class="keys"><kbd>⌘C</kbd> <kbd>⌘V</kbd></span><span class="desc">คัดลอก/วาง — พื้นที่ที่เลือกถ้ามี ไม่งั้นทั้ง layer</span>
       <span class="keys"><kbd>+</kbd> <kbd>−</kbd></span><span class="desc">ซูมเข้า / ออก</span>
       <span class="keys"><kbd>1</kbd> <kbd>0</kbd></span><span class="desc">100% · Fit</span>
       <span class="keys"><kbd>Space</kbd></span><span class="desc">ค้างแล้วลาก = เลื่อนภาพ</span>
@@ -869,7 +881,10 @@
       <span class="keys"><kbd>สกรอลล์</kbd></span><span class="desc">ซูมที่ตำแหน่งเมาส์</span>
       <span class="keys"><kbd>Alt</kbd>+คลิก</span><span class="desc">ดูดสีจากพิกเซล โดยไม่ต้องเปลี่ยนเครื่องมือ</span>
       <span class="keys"><kbd>Shift</kbd>+คลิก</span><span class="desc">ลากเส้นตรงต่อจากจุดวาดล่าสุด (Pen/Eraser)</span>
-      <span class="keys"><kbd>Esc</kbd></span><span class="desc">ยกเลิกการวาด/รูปทรงที่กำลังค้างอยู่</span>
+      <span class="keys">ลากในกรอบที่เลือก</span><span class="desc">ย้ายเนื้อหาที่เลือก (Select tool)</span>
+      <span class="keys"><kbd>ลูกศร</kbd></span><span class="desc">ขยับพื้นที่ที่เลือกทีละ 1px (⇧ = 10px)</span>
+      <span class="keys"><kbd>Delete</kbd></span><span class="desc">ลบเนื้อหาในพื้นที่ที่เลือก</span>
+      <span class="keys"><kbd>Esc</kbd></span><span class="desc">ยกเลิกการวาดที่ค้างอยู่ / ยกเลิกการเลือกพื้นที่</span>
     </div>
     <button class="export-btn" id="helpClose">Close</button>
   </div>
@@ -1044,6 +1059,7 @@
 
     drawComposite(pctx, data, engine.gridW, engine.gridH, 1);
     updateMirrorLines();
+    updateSelectionBox();
     updateHoverEl();
     updateStatus();
     if(uiDirty){ refreshUI(); uiDirty = false; }
@@ -1075,6 +1091,19 @@
       ly.style.left = '0';
       ly.style.width = W + 'px';
     } else ly.style.display = 'none';
+  }
+
+  function updateSelectionBox(){
+    const el = document.getElementById('selectionBox');
+    if(selectionRect){
+      el.style.display = 'block';
+      el.style.left = (selectionRect.x*CELL) + 'px';
+      el.style.top = (selectionRect.y*CELL) + 'px';
+      el.style.width = (selectionRect.w*CELL) + 'px';
+      el.style.height = (selectionRect.h*CELL) + 'px';
+    } else {
+      el.style.display = 'none';
+    }
   }
 
   let hoverCell = null;
@@ -1120,6 +1149,12 @@
   let shapeStart = null;
   let lastDraw = null;
   let lastPaintedPoint = null;
+
+  /* ---- rectangular marquee selection (Select tool) ---- */
+  let selectionRect = null;    // {x,y,w,h} in canvas cells, or null = nothing selected
+  let selectionAnchor = null;  // [x,y] while dragging out a brand-new selection rect
+  let selectionDrag = null;    // { startX,startY, origX,origY, w,h, floatData, baseData } while moving existing content
+  let selectionClipboard = null; // { w, h, data } from Ctrl+C on a selection
 
   function drawShape(x0,y0,x1,y1){
     const layer = engine.getActiveLayer(engine.currentDir);
@@ -1199,6 +1234,30 @@
       return;
     }
 
+    if(tool === 'select'){
+      pointerActive = true;
+      const inside = selectionRect && p[0]>=selectionRect.x && p[0]<selectionRect.x+selectionRect.w &&
+                                       p[1]>=selectionRect.y && p[1]<selectionRect.y+selectionRect.h;
+      if(inside){
+        const dir = engine.currentDir;
+        const idx = engine.ensureFrameDir(dir).active;
+        engine.pushUndo();
+        strokeHasUndo = true;
+        selectionDrag = {
+          startX: p[0], startY: p[1],
+          origX: selectionRect.x, origY: selectionRect.y, w: selectionRect.w, h: selectionRect.h,
+          floatData: engine.getRegionData(dir, idx, selectionRect),
+          baseData: engine.getActiveLayer(dir).data.slice(),
+        };
+      } else {
+        strokeHasUndo = false;
+        selectionRect = null;
+        selectionAnchor = [p[0],p[1]];
+      }
+      render();
+      return;
+    }
+
     pointerActive = true;
     engine.pushUndo();
     strokeHasUndo = true;
@@ -1236,6 +1295,22 @@
         const layer = engine.getActiveLayer(engine.currentDir);
         layer.data = shapeBaseData.slice();
         drawShape(shapeStart[0], shapeStart[1], p[0], p[1]);
+      } else if(tool === 'select'){
+        if(selectionDrag){
+          const dir = engine.currentDir;
+          const idx = engine.ensureFrameDir(dir).active;
+          const dx = p[0]-selectionDrag.startX, dy = p[1]-selectionDrag.startY;
+          const nx = selectionDrag.origX+dx, ny = selectionDrag.origY+dy;
+          const layer = engine.getActiveLayer(dir);
+          layer.data = selectionDrag.baseData.slice();
+          engine.clearRegion(dir, idx, { x:selectionDrag.origX, y:selectionDrag.origY, w:selectionDrag.w, h:selectionDrag.h });
+          engine.stampRegion(dir, idx, nx, ny, selectionDrag.w, selectionDrag.h, selectionDrag.floatData);
+          selectionRect = { x:nx, y:ny, w:selectionDrag.w, h:selectionDrag.h };
+        } else if(selectionAnchor){
+          const xa = Math.min(selectionAnchor[0], p[0]), xb = Math.max(selectionAnchor[0], p[0]);
+          const ya = Math.min(selectionAnchor[1], p[1]), yb = Math.max(selectionAnchor[1], p[1]);
+          selectionRect = { x:xa, y:ya, w:xb-xa+1, h:yb-ya+1 };
+        }
       } else {
         paintAt(p[0],p[1],false);
       }
@@ -1249,6 +1324,13 @@
     if(pointerActive && (tool==='pen'||tool==='eraser') && lastDraw){
       lastPaintedPoint = lastDraw;
     }
+    if(tool === 'select'){
+      if(!selectionDrag && selectionRect && selectionRect.w<=1 && selectionRect.h<=1){
+        selectionRect = null; // plain click with no drag, and no existing selection = deselect
+      }
+      selectionDrag = null;
+      selectionAnchor = null;
+    }
     if(pointerActive && strokeHasUndo) uiDirty = true;
     pointerActive = false;
     shapeBaseData = null;
@@ -1261,12 +1343,75 @@
   function cancelStroke(){
     if(!pointerActive) return;
     if(strokeHasUndo) engine.discardLastUndo();
+    if(tool === 'select'){
+      if(selectionDrag){
+        selectionRect = { x:selectionDrag.origX, y:selectionDrag.origY, w:selectionDrag.w, h:selectionDrag.h };
+      } else if(selectionAnchor){
+        selectionRect = null;
+      }
+      selectionDrag = null;
+      selectionAnchor = null;
+    }
     pointerActive = false;
     shapeBaseData = null;
     shapeStart = null;
     lastDraw = null;
     strokeHasUndo = false;
     render();
+  }
+
+  function deselect(){
+    if(!selectionRect) return;
+    selectionRect = null;
+    render();
+  }
+
+  function deleteSelectionContents(){
+    if(!selectionRect) return;
+    const dir = engine.currentDir;
+    const idx = engine.ensureFrameDir(dir).active;
+    engine.pushUndo();
+    engine.clearRegion(dir, idx, selectionRect);
+    uiDirty = true;
+    render();
+  }
+
+  function nudgeSelection(dx, dy, big){
+    if(!selectionRect) return;
+    const step = big ? 10 : 1;
+    const dir = engine.currentDir;
+    const idx = engine.ensureFrameDir(dir).active;
+    const floatData = engine.getRegionData(dir, idx, selectionRect);
+    engine.pushUndo();
+    engine.clearRegion(dir, idx, selectionRect);
+    const nx = selectionRect.x + dx*step, ny = selectionRect.y + dy*step;
+    engine.stampRegion(dir, idx, nx, ny, selectionRect.w, selectionRect.h, floatData);
+    selectionRect = { x:nx, y:ny, w:selectionRect.w, h:selectionRect.h };
+    uiDirty = true;
+    render();
+  }
+
+  function copySelection(){
+    if(!selectionRect) return;
+    const dir = engine.currentDir;
+    const idx = engine.ensureFrameDir(dir).active;
+    selectionClipboard = { w: selectionRect.w, h: selectionRect.h, data: engine.getRegionData(dir, idx, selectionRect) };
+    flashMsg('คัดลอกส่วนที่เลือกแล้ว (' + selectionRect.w + '×' + selectionRect.h + ')');
+  }
+
+  function pasteSelection(){
+    if(!selectionClipboard) return;
+    const dir = engine.currentDir;
+    const idx = engine.ensureFrameDir(dir).active;
+    const cw = selectionClipboard.w, ch = selectionClipboard.h;
+    const x = selectionRect ? selectionRect.x : Math.floor((engine.gridW-cw)/2);
+    const y = selectionRect ? selectionRect.y : Math.floor((engine.gridH-ch)/2);
+    engine.pushUndo();
+    engine.stampRegion(dir, idx, x, y, cw, ch, selectionClipboard.data);
+    selectionRect = { x, y, w:cw, h:ch };
+    uiDirty = true;
+    render();
+    flashMsg('วางส่วนที่คัดลอกแล้ว');
   }
 
   /* --- pan state --- */
@@ -1466,8 +1611,8 @@
     if(mod){
       if(k === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
       if(k === 'y'){ e.preventDefault(); redo(); return; }
-      if(k === 'c'){ e.preventDefault(); copyLayer(); return; }
-      if(k === 'v'){ e.preventDefault(); pasteLayer(); return; }
+      if(k === 'c'){ e.preventDefault(); (tool==='select' && selectionRect) ? copySelection() : copyLayer(); return; }
+      if(k === 'v'){ e.preventDefault(); (tool==='select' && selectionClipboard) ? pasteSelection() : pasteLayer(); return; }
       if(k === 'm'){ e.preventDefault(); toggleMirrorX(); return; }
       if(k === 'g'){ e.preventDefault(); toggleGrid(); return; }
       return;
@@ -1481,6 +1626,7 @@
       case 'l': setTool('line'); break;
       case 'r': setTool('rect'); break;
       case 'o': setTool('ellipse'); break;
+      case 's': setTool('select'); break;
       case 'm': toggleMirrorX(); break;
       case 'g': toggleGrid(); break;
       case '[': changeBrush(-1); break;
@@ -1490,7 +1636,25 @@
       case '1': zoom = 1; clampPan(); applyTransform(); render(); break;
       case '0': resetView(); break;
       case '?': toggleHelp(); break;
-      case 'escape': cancelStroke(); break;
+      case 'escape':
+        if(pointerActive){ cancelStroke(); }
+        else if(tool==='select'){ deselect(); }
+        break;
+      case 'delete': case 'backspace':
+        if(tool==='select' && selectionRect){ e.preventDefault(); deleteSelectionContents(); }
+        break;
+      case 'arrowleft':
+        if(tool==='select' && selectionRect){ e.preventDefault(); nudgeSelection(-1,0,e.shiftKey); }
+        break;
+      case 'arrowright':
+        if(tool==='select' && selectionRect){ e.preventDefault(); nudgeSelection(1,0,e.shiftKey); }
+        break;
+      case 'arrowup':
+        if(tool==='select' && selectionRect){ e.preventDefault(); nudgeSelection(0,-1,e.shiftKey); }
+        break;
+      case 'arrowdown':
+        if(tool==='select' && selectionRect){ e.preventDefault(); nudgeSelection(0,1,e.shiftKey); }
+        break;
       case ' ': e.preventDefault(); setSpace(true); break;
     }
   }

@@ -520,6 +520,63 @@
       return true;
     }
 
+    /* ---- rectangular region ops (backs the marquee selection tool) ---- */
+
+    // Copies a rect {x,y,w,h} of a layer's pixels out (row-major, w*h long).
+    // Cells outside the canvas come back as 'transparent' rather than throwing,
+    // so a selection dragged partway off-canvas can still be read cleanly.
+    getRegionData(dir, idx, rect) {
+      const f = this.ensureFrameDir(dir);
+      const layer = f.layers[idx];
+      const w = this.gridW, h = this.gridH;
+      const out = new Array(rect.w * rect.h).fill('transparent');
+      for (let ry = 0; ry < rect.h; ry++) {
+        const cy = rect.y + ry;
+        if (cy < 0 || cy >= h) continue;
+        for (let rx = 0; rx < rect.w; rx++) {
+          const cx = rect.x + rx;
+          if (cx < 0 || cx >= w) continue;
+          out[ry * rect.w + rx] = layer.data[cy * w + cx];
+        }
+      }
+      return out;
+    }
+
+    // Clears a rect {x,y,w,h} of a layer to transparent, clipped to canvas bounds.
+    clearRegion(dir, idx, rect) {
+      const f = this.ensureFrameDir(dir);
+      const layer = f.layers[idx];
+      const w = this.gridW, h = this.gridH;
+      for (let ry = 0; ry < rect.h; ry++) {
+        const cy = rect.y + ry;
+        if (cy < 0 || cy >= h) continue;
+        for (let rx = 0; rx < rect.w; rx++) {
+          const cx = rect.x + rx;
+          if (cx < 0 || cx >= w) continue;
+          layer.data[cy * w + cx] = 'transparent';
+        }
+      }
+    }
+
+    // Writes rw x rh `data` (row-major) onto a layer at (x, y), clipped to canvas
+    // bounds. Every destination cell in range is overwritten — including with
+    // 'transparent' source cells — matching how a moved/pasted rectangular
+    // selection is expected to replace whatever was underneath it.
+    stampRegion(dir, idx, x, y, rw, rh, data) {
+      const f = this.ensureFrameDir(dir);
+      const layer = f.layers[idx];
+      const w = this.gridW, h = this.gridH;
+      for (let ry = 0; ry < rh; ry++) {
+        const cy = y + ry;
+        if (cy < 0 || cy >= h) continue;
+        for (let rx = 0; rx < rw; rx++) {
+          const cx = x + rx;
+          if (cx < 0 || cx >= w) continue;
+          layer.data[cy * w + cx] = data[ry * rw + rx];
+        }
+      }
+    }
+
     /* ---- serialize / restore (for autosave, export, etc.) ---- */
 
     serialize() {

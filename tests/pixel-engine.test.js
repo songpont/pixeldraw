@@ -307,3 +307,62 @@ test('layerContentBounds reports the tight box around painted pixels, or null wh
   layer.data[5 * 8 + 6] = '#a';
   assert.deepEqual(e.layerContentBounds('down', 0), { minX: 3, minY: 2, maxX: 6, maxY: 5 });
 });
+
+test('getRegionData extracts a rect and treats out-of-canvas cells as transparent', () => {
+  const e = new PixelEngine({ gridW: 4, gridH: 4 });
+  const layer = e.getActiveLayer('down');
+  // paint a distinct color at every cell so we can tell exactly what got extracted
+  for (let i = 0; i < 16; i++) layer.data[i] = 'c' + i;
+
+  // fully in-bounds 2x2 rect starting at (1,1): cells 5,6,9,10
+  assert.deepEqual(e.getRegionData('down', 0, { x: 1, y: 1, w: 2, h: 2 }), ['c5', 'c6', 'c9', 'c10']);
+
+  // rect that hangs off the top-left edge — out-of-canvas cells come back transparent
+  assert.deepEqual(
+    e.getRegionData('down', 0, { x: -1, y: -1, w: 2, h: 2 }),
+    ['transparent', 'transparent', 'transparent', 'c0']
+  );
+});
+
+test('clearRegion only clears the given rect, clipped to canvas bounds', () => {
+  const e = new PixelEngine({ gridW: 4, gridH: 4 });
+  const layer = e.getActiveLayer('down');
+  layer.data.fill('#a');
+  e.clearRegion('down', 0, { x: 1, y: 1, w: 2, h: 2 });
+  assert.equal(layer.data[1 * 4 + 1], 'transparent');
+  assert.equal(layer.data[2 * 4 + 2], 'transparent');
+  assert.equal(layer.data[0], '#a', 'outside the rect is untouched');
+  assert.equal(countPainted(layer.data), 12, '16 - 4 cleared = 12 remain');
+});
+
+test('stampRegion overwrites the destination (including with transparent source cells), clipped to canvas', () => {
+  const e = new PixelEngine({ gridW: 4, gridH: 4 });
+  const layer = e.getActiveLayer('down');
+  layer.data.fill('#bg');
+  const patch = ['#x', 'transparent', 'transparent', '#x']; // 2x2, checkerboard
+  e.stampRegion('down', 0, 1, 1, 2, 2, patch);
+  assert.equal(layer.data[1 * 4 + 1], '#x');
+  assert.equal(layer.data[1 * 4 + 2], 'transparent', 'transparent source cells DO overwrite the destination');
+  assert.equal(layer.data[2 * 4 + 1], 'transparent');
+  assert.equal(layer.data[2 * 4 + 2], '#x');
+  assert.equal(layer.data[0], '#bg', 'outside the stamp is untouched');
+
+  // stamping partly off the right/bottom edge clips silently, no throw
+  e.stampRegion('down', 0, 3, 3, 2, 2, ['#y', '#y', '#y', '#y']);
+  assert.equal(layer.data[3 * 4 + 3], '#y');
+});
+
+test('getRegionData -> stampRegion round-trip reproduces a moved region exactly', () => {
+  const e = new PixelEngine({ gridW: 6, gridH: 6 });
+  const layer = e.getActiveLayer('down');
+  layer.data[1 * 6 + 1] = '#p';
+  layer.data[2 * 6 + 2] = '#q';
+  const rect = { x: 1, y: 1, w: 2, h: 2 };
+  const lifted = e.getRegionData('down', 0, rect);
+  e.clearRegion('down', 0, rect);
+  assert.equal(countPainted(layer.data), 0, 'original spot is fully cleared after lifting');
+  e.stampRegion('down', 0, 3, 3, rect.w, rect.h, lifted);
+  assert.equal(layer.data[3 * 6 + 3], '#p');
+  assert.equal(layer.data[4 * 6 + 4], '#q');
+  assert.equal(countPainted(layer.data), 2, 'moved content lands intact at the new spot');
+});
