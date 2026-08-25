@@ -366,3 +366,85 @@ test('getRegionData -> stampRegion round-trip reproduces a moved region exactly'
   assert.equal(layer.data[4 * 6 + 4], '#q');
   assert.equal(countPainted(layer.data), 2, 'moved content lands intact at the new spot');
 });
+
+test('hexToRgb / rgbToHex round-trip exactly', () => {
+  assert.deepEqual(PixelEngine.hexToRgb('#ff8000'), [255, 128, 0]);
+  assert.equal(PixelEngine.rgbToHex(255, 128, 0), '#ff8000');
+  assert.equal(PixelEngine.rgbToHex(0, 0, 0), '#000000');
+  assert.equal(PixelEngine.rgbToHex(300, -10, 128.6), '#ff0081', 'clamps out-of-range and rounds fractional channels');
+});
+
+test('a fully-opaque layer composites to plain hex (backward compatible with pre-opacity behavior)', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  const layer = e.getActiveLayer('down');
+  layer.data[0] = '#ff0000';
+  assert.equal(e.compositeArray('down')[0], '#ff0000');
+});
+
+test('setLayerOpacity blends the layer color toward whatever is beneath it', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  const dir = 'down';
+  e.addLayer(dir); // now layers: [0]=base, [1]=top (active)
+  e.getActiveLayer(dir).data[0] = '#000000'; // top layer: black
+  const f = e.ensureFrameDir(dir);
+  f.layers[0].data[0] = '#ffffff'; // base layer: white
+
+  e.setLayerOpacity(dir, 1, 0.5); // top layer (black) at 50% opacity over white base
+  const composited = e.compositeArray(dir)[0];
+  // 50% black over white -> mid gray, fully opaque (both layers cover this pixel)
+  assert.equal(composited, '#808080');
+});
+
+test('setLayerOpacity on a layer with nothing beneath produces a partially-transparent rgba() result', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  const dir = 'down';
+  const layer = e.getActiveLayer(dir);
+  layer.data[0] = '#ff0000';
+  e.setLayerOpacity(dir, 0, 0.5);
+  const composited = e.compositeArray(dir)[0];
+  assert.match(composited, /^rgba\(255,\s*0,\s*0,\s*0\.500\)$/, 'nothing beneath -> the pixel itself carries the reduced alpha');
+});
+
+test('setLayerOpacity(0) hides a layer from the composite entirely, same as visible=false', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  const dir = 'down';
+  const layer = e.getActiveLayer(dir);
+  layer.data[0] = '#ff0000';
+  e.setLayerOpacity(dir, 0, 0);
+  assert.equal(e.compositeArray(dir)[0], 'transparent');
+});
+
+test('setLayerOpacity clamps to [0,1]', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  e.setLayerOpacity('down', 0, 5);
+  assert.equal(e.getActiveLayer('down').opacity, 1);
+  e.setLayerOpacity('down', 0, -5);
+  assert.equal(e.getActiveLayer('down').opacity, 0);
+});
+
+test('pickColorAt flattens a partially-transparent composited pixel to solid hex', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  const dir = 'down';
+  e.getActiveLayer(dir).data[0] = '#ff0000';
+  e.setLayerOpacity(dir, 0, 0.5);
+  // compositeArray would give 'rgba(255,0,0,0.5)' here; pickColorAt should flatten it
+  assert.equal(e.pickColorAt(dir, 0, 0), '#ff0000');
+});
+
+test('duplicateLayer copies opacity; a brand-new layer defaults to fully opaque', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  const dir = 'down';
+  assert.equal(e.getActiveLayer(dir).opacity, 1, 'new layers default to opacity 1');
+  e.setLayerOpacity(dir, 0, 0.3);
+  const copy = e.duplicateLayer(dir, 0);
+  assert.equal(copy.opacity, 0.3);
+});
+
+test('serialize -> loadSerialized round-trip preserves per-layer opacity', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2 });
+  e.setLayerOpacity('down', 0, 0.42);
+  const payload = e.serialize();
+  const e2 = new PixelEngine({ gridW: 2, gridH: 2 });
+  e2.loadSerialized(payload);
+  assert.equal(e2.getActiveLayer('down').opacity, 0.42);
+});

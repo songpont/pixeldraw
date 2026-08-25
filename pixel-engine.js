@@ -65,6 +65,16 @@
     return !c || c === 'transparent';
   }
 
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function rgbToHex(r, g, b) {
+    const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
+    return '#' + [clamp(r), clamp(g), clamp(b)].map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+
   /* ---- stateless helpers (also exposed as statics) ---- */
 
   function brushExtent(size) {
@@ -146,7 +156,7 @@
 
     newLayer(name) {
       this.layerIdCounter++;
-      return { id: this.layerIdCounter, name: name || ('Layer ' + this.layerIdCounter), visible: true, data: this.newLayerData() };
+      return { id: this.layerIdCounter, name: name || ('Layer ' + this.layerIdCounter), visible: true, opacity: 1, data: this.newLayerData() };
     }
 
     _blankFrame() {
@@ -168,18 +178,48 @@
       return f.layers[f.active];
     }
 
+    // Composites all visible layers bottom-to-top using standard Porter-Duff
+    // "over" alpha blending, so partial layer.opacity actually shows through
+    // to whatever is beneath it (or to nothing, if nothing is beneath it yet).
+    // Returns 'transparent', a plain '#rrggbb' hex when the result is fully
+    // opaque, or an 'rgba(r,g,b,a)' string when it's partially transparent —
+    // all three are valid Canvas fillStyle values, so callers that just draw
+    // the result (render, export) need no changes to consume this.
     compositeArray(dir) {
       dir = dir || this.currentDir;
       const f = this.ensureFrameDir(dir);
-      const out = new Array(this.gridW * this.gridH).fill('transparent');
+      const n = this.gridW * this.gridH;
+      const accR = new Float64Array(n), accG = new Float64Array(n), accB = new Float64Array(n), accA = new Float64Array(n);
       f.layers.forEach(layer => {
         if (!layer.visible) return;
-        for (let i = 0; i < out.length; i++) {
+        const layerOpacity = layer.opacity == null ? 1 : layer.opacity;
+        if (layerOpacity <= 0) return;
+        for (let i = 0; i < n; i++) {
           const c = layer.data[i];
-          if (!isBlank(c)) out[i] = c;
+          if (isBlank(c)) continue;
+          const [r, g, b] = hexToRgb(c);
+          const srcA = layerOpacity;
+          const dstA = accA[i];
+          const outA = srcA + dstA * (1 - srcA);
+          if (outA <= 0) continue;
+          accR[i] = (r * srcA + accR[i] * dstA * (1 - srcA)) / outA;
+          accG[i] = (g * srcA + accG[i] * dstA * (1 - srcA)) / outA;
+          accB[i] = (b * srcA + accB[i] * dstA * (1 - srcA)) / outA;
+          accA[i] = outA;
         }
       });
+      const out = new Array(n);
+      for (let i = 0; i < n; i++) {
+        if (accA[i] <= 0) out[i] = 'transparent';
+        else if (accA[i] >= 1) out[i] = rgbToHex(accR[i], accG[i], accB[i]);
+        else out[i] = 'rgba(' + Math.round(accR[i]) + ',' + Math.round(accG[i]) + ',' + Math.round(accB[i]) + ',' + accA[i].toFixed(3) + ')';
+      }
       return out;
+    }
+
+    setLayerOpacity(dir, idx, opacity) {
+      const f = this.ensureFrameDir(dir);
+      f.layers[idx].opacity = Math.max(0, Math.min(1, opacity));
     }
 
     isEmpty(dir) {
@@ -311,10 +351,16 @@
       if (this.mirrorX && this.mirrorY) floodFillFrom(w - 1 - x, h - 1 - y, color, layer.data, w, h);
     }
 
+    // Picks the flattened, fully-opaque color at (x,y) — if compositing left that
+    // pixel partially transparent (an rgba() string), the alpha is dropped so the
+    // picked color paints as a normal solid swatch, same as any other palette color.
     pickColorAt(dir, x, y) {
       const data = this.compositeArray(dir);
       const c = data[y * this.gridW + x];
-      return isBlank(c) ? null : c;
+      if (isBlank(c)) return null;
+      if (c[0] === '#') return c;
+      const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c);
+      return m ? rgbToHex(parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])) : c;
     }
 
     /* ---- layer CRUD ---- */
@@ -339,7 +385,7 @@
       const f = this.ensureFrameDir(dir);
       const layer = f.layers[idx];
       this.layerIdCounter++;
-      const copy = { id: this.layerIdCounter, name: layer.name + ' copy', visible: layer.visible, data: layer.data.slice() };
+      const copy = { id: this.layerIdCounter, name: layer.name + ' copy', visible: layer.visible, opacity: layer.opacity == null ? 1 : layer.opacity, data: layer.data.slice() };
       f.layers.splice(idx + 1, 0, copy);
       f.active = idx + 1;
       return copy;
@@ -585,7 +631,7 @@
         const f = this.frames[d.key];
         payload.frames[d.key] = {
           active: f.active,
-          layers: f.layers.map(l => ({ name: l.name, visible: l.visible, data: l.data.slice() })),
+          layers: f.layers.map(l => ({ name: l.name, visible: l.visible, opacity: l.opacity == null ? 1 : l.opacity, data: l.data.slice() })),
         };
       });
       return payload;
@@ -605,7 +651,7 @@
         const fd = payload.frames[d.key];
         const layers = (fd && Array.isArray(fd.layers) ? fd.layers : [])
           .filter(l => Array.isArray(l.data) && l.data.length === cellCount)
-          .map(l => { this.layerIdCounter++; return { id: this.layerIdCounter, name: l.name || 'Layer', visible: l.visible !== false, data: l.data.slice() }; });
+          .map(l => { this.layerIdCounter++; return { id: this.layerIdCounter, name: l.name || 'Layer', visible: l.visible !== false, opacity: typeof l.opacity === 'number' ? Math.max(0, Math.min(1, l.opacity)) : 1, data: l.data.slice() }; });
         if (layers.length) {
           this.frames[d.key] = { active: Math.min(fd.active || 0, layers.length - 1), layers };
           restoredAny = true;
@@ -625,6 +671,8 @@
   PixelEngine.floodFillFrom = floodFillFrom;
   PixelEngine.decodeRGBAToColors = decodeRGBAToColors;
   PixelEngine.dominantColors = dominantColors;
+  PixelEngine.hexToRgb = hexToRgb;
+  PixelEngine.rgbToHex = rgbToHex;
 
   return PixelEngine;
 });

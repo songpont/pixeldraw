@@ -397,6 +397,38 @@
     background:none;
     cursor:pointer;
   }
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    height:6px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    outline:none;
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    appearance:none;
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--accent);
+    border:2px solid #0e1116;
+    cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--accent);
+    border:2px solid #0e1116;
+    cursor:pointer;
+  }
+  input[type=range]::-moz-range-track{
+    background:var(--panel-2);
+    border-radius:4px;
+    height:6px;
+  }
   .add-color-row{
     display:flex;
     gap:8px;
@@ -770,6 +802,14 @@
         <button class="tool" id="delLayerBtn">Delete</button>
       </div>
       <div class="hint">เลือกเพื่อวาด • ไอคอนตา = แสดง/ซ่อน • ดับเบิลคลิกชื่อ = เปลี่ยนชื่อ</div>
+
+      <div class="field" style="margin-top:12px; margin-bottom:0;">
+        <label style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:4px;">
+          <span>ความทึบของ Layer ที่เลือก</span>
+          <span id="layerOpacityValue" style="font-family:var(--mono); color:var(--text); font-weight:400; letter-spacing:0; text-transform:none;">100%</span>
+        </label>
+        <input type="range" id="layerOpacitySlider" min="0" max="100" value="100">
+      </div>
 
       <div class="section-label" style="margin-top:12px;">ย้าย / ปรับขนาด Layer ที่เลือก</div>
       <div class="tool-row">
@@ -2022,7 +2062,26 @@
     updateInfo();
     renderPalette();
     updateToolButtons();
+    updateLayerOpacityControl();
   }
+
+  function updateLayerOpacityControl(){
+    const f = engine.ensureFrameDir(engine.currentDir);
+    const layer = f.layers[f.active];
+    const opacity = layer ? (layer.opacity == null ? 1 : layer.opacity) : 1;
+    const pct = Math.round(opacity * 100);
+    document.getElementById('layerOpacitySlider').value = pct;
+    document.getElementById('layerOpacityValue').textContent = pct + '%';
+  }
+
+  document.getElementById('layerOpacitySlider').addEventListener('input', (e)=>{
+    const pct = parseInt(e.target.value, 10);
+    document.getElementById('layerOpacityValue').textContent = pct + '%';
+    const dir = engine.currentDir;
+    const idx = engine.ensureFrameDir(dir).active;
+    engine.setLayerOpacity(dir, idx, pct/100);
+    render();
+  });
 
   /* ============ canvas size ============ */
 
