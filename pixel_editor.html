@@ -767,6 +767,14 @@
           <span id="currentColorHex">#f7c8a6</span>
         </span>
       </div>
+      <div class="field" style="margin-bottom:8px;">
+        <select id="paletteSetSelect">
+          <option value="default">Default (32 สี)</option>
+          <option value="grayscale">Grayscale (32 สี)</option>
+          <option value="retro">Retro (32 สี)</option>
+          <option value="pastel">Pastel (32 สี)</option>
+        </select>
+      </div>
       <div class="palette-grid" id="paletteGrid"></div>
       <div class="add-color-row">
         <input type="color" id="colorPicker" value="#f7c8a6">
@@ -1665,6 +1673,45 @@
     renderPalette();
   });
 
+  /* ============ palette sets ============ */
+
+  const PALETTE_SET_LABELS = { default:'Default', grayscale:'Grayscale', retro:'Retro', pastel:'Pastel' };
+  let lastImportedPalette = null; // { label, colors } — cached so re-selecting "fromFile" works without re-importing
+
+  function loadPaletteSet(key){
+    let colors, label;
+    if(key === 'fromFile' && lastImportedPalette){
+      colors = lastImportedPalette.colors;
+      label = 'จากไฟล์: ' + lastImportedPalette.label;
+    } else {
+      colors = PixelEngine.PALETTE_SETS[key];
+      label = PALETTE_SET_LABELS[key] || key;
+    }
+    if(!colors) return;
+    engine.palette = colors.slice();
+    if(!engine.palette.includes(selectedColor)){
+      selectedColor = engine.palette.find(c=>c!=='transparent') || engine.palette[0];
+    }
+    renderPalette();
+    flashMsg('โหลดชุดสี: ' + label);
+  }
+
+  document.getElementById('paletteSetSelect').addEventListener('change', (e)=>{
+    loadPaletteSet(e.target.value);
+  });
+
+  function ensureFromFileOption(label, count){
+    const select = document.getElementById('paletteSetSelect');
+    let opt = select.querySelector('option[value="fromFile"]');
+    if(!opt){
+      opt = document.createElement('option');
+      opt.value = 'fromFile';
+      select.appendChild(opt);
+    }
+    opt.textContent = 'จากไฟล์: ' + label + ' (' + count + ' สี)';
+    return opt;
+  }
+
   function refreshUI(){
     renderTabs();
     renderLayers();
@@ -1750,6 +1797,10 @@
     const colors = PixelEngine.decodeRGBAToColors(imgData, w, h);
 
     engine.importColorsAsLayer(engine.currentDir, w, h, colors, fileName.replace(/\.[^.]+$/,''));
+
+    lastImportedPalette = { label: fileName, colors: engine.palette.slice() };
+    ensureFromFileOption(fileName, engine.palette.length - 1);
+    document.getElementById('paletteSetSelect').value = 'fromFile';
 
     sizeW.value = engine.gridW;
     sizeH.value = engine.gridH;

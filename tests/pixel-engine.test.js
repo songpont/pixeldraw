@@ -185,6 +185,40 @@ test('importColorsAsLayer resizes the grid when the imported image size differs'
   assert.ok(e.palette.includes('#ff0000'));
 });
 
+test('importColorsAsLayer REPLACES the palette rather than appending to it', () => {
+  const e = new PixelEngine({ gridW: 2, gridH: 2, palette: ['transparent', '#deadbe'] });
+  const colors = ['#ff0000', '#ff0000', '#00ff00', 'transparent'];
+  e.importColorsAsLayer('down', 2, 2, colors, 'import');
+  assert.equal(e.palette.includes('#deadbe'), false, 'old palette colors are discarded, not kept alongside');
+  assert.deepEqual(e.palette, ['transparent', '#ff0000', '#00ff00']);
+});
+
+test('importColorsAsLayer caps the derived palette at maxPaletteColors, most-frequent first', () => {
+  const e = new PixelEngine({ gridW: 1, gridH: 1 });
+  // 5 distinct colors with clear, distinct frequencies: a x4, b x3, c x2, d x1, e x1
+  const colors = ['a', 'a', 'a', 'a', 'b', 'b', 'b', 'c', 'c', 'd', 'e'];
+  const { paletteColors } = e.importColorsAsLayer('down', 1, 1, colors, 'import', 3);
+  assert.deepEqual(paletteColors, ['a', 'b', 'c'], 'only the 3 most frequent colors are kept, in frequency order');
+  assert.deepEqual(e.palette, ['transparent', 'a', 'b', 'c']);
+});
+
+test('dominantColors ranks by frequency and ignores transparent', () => {
+  const colors = ['#111', 'transparent', '#222', '#222', '#333', '#333', '#333', null, ''];
+  assert.deepEqual(PixelEngine.dominantColors(colors, 10), ['#333', '#222', '#111']);
+  assert.deepEqual(PixelEngine.dominantColors(colors, 2), ['#333', '#222'], 'respects the cap');
+});
+
+test('PALETTE_SETS ship 4 curated 32-color sets, each starting with transparent', () => {
+  const sets = PixelEngine.PALETTE_SETS;
+  ['default', 'grayscale', 'retro', 'pastel'].forEach(key => {
+    const set = sets[key];
+    assert.ok(Array.isArray(set), key + ' set exists');
+    assert.equal(set[0], 'transparent', key + ' set starts with transparent');
+    assert.equal(set.length, 33, key + ' set has exactly 32 colors + transparent');
+    assert.equal(new Set(set).size, set.length, key + ' set has no duplicate colors');
+  });
+});
+
 test('decodeRGBAToColors turns alpha=0 into transparent and others into hex', () => {
   // 2x1 image: first pixel transparent, second pixel opaque red
   const rgba = new Uint8ClampedArray([10, 20, 30, 0, 255, 0, 0, 255]);

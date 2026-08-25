@@ -22,18 +22,44 @@
 
   const DEFAULT_PALETTE = [
     'transparent',
-    '#2a1e18',
-    '#f7c8a6',
-    '#dea882',
-    '#36261e',
-    '#f0f0eb',
-    '#cccccb',
-    '#3c5fa0',
-    '#283759',
-    '#2d201a',
-    '#4b8de0',
-    '#e0a24b',
+    '#000000', '#1a1a1a', '#333333', '#4d4d4d', '#666666', '#999999', '#cccccc', '#ffffff',
+    '#2a1e18', '#5a3d2b', '#8a5a3c', '#c1875a', '#e8b183', '#f7c8a6',
+    '#7a1f1f', '#c1272d', '#e8563c', '#f2994a', '#f6c445', '#fff275',
+    '#234d3a', '#2f7a3c', '#57a659', '#8fd18a',
+    '#14213d', '#1d4ed8', '#3fa7f7', '#9ecbff',
+    '#3c1f5e', '#7b3fa0', '#b06cd9', '#e63980',
   ];
+
+  const PALETTE_SETS = {
+    default: DEFAULT_PALETTE,
+    grayscale: (function () {
+      const set = ['transparent'];
+      for (let i = 0; i < 32; i++) {
+        const v = Math.round(i * 255 / 31);
+        const h = v.toString(16).padStart(2, '0');
+        set.push('#' + h + h + h);
+      }
+      return set;
+    })(),
+    retro: [
+      'transparent',
+      '#0f0f1e', '#ffffff', '#ff3355', '#ff8c42', '#ffd23f', '#b4e33d', '#4dff88', '#2de1c2',
+      '#2ea3ff', '#4361ee', '#7b2ff7', '#d63aff', '#ff5cad', '#8b5a2b', '#c68642', '#ffdca8',
+      '#3a5a40', '#588157', '#a3b18a', '#dad7cd', '#1b263b', '#415a77', '#778da9', '#e0e1dd',
+      '#6a040f', '#9d0208', '#d00000', '#dc2f02', '#e85d04', '#f48c06', '#faa307', '#ffba08',
+    ],
+    pastel: [
+      'transparent',
+      '#f5f5f5', '#e0e0e0', '#c2c2c2', '#4a4a4a',
+      '#ffd6e8', '#ffb3d1', '#ff8fb3', '#f76c9c',
+      '#ffe0c2', '#ffcb99', '#ffb366', '#ffa14d',
+      '#fff3b0', '#ffe97a', '#ffdd57', '#f4c430',
+      '#d9f2d0', '#b8e6a3', '#93d675', '#6fbf4f',
+      '#c2f0e6', '#94e0d1', '#66d0bc', '#3cb6a3',
+      '#cde0ff', '#a3c6ff', '#7aa8ff', '#5c8df6',
+      '#e0c2ff', '#c99bff', '#b17bff', '#9a5cff',
+    ],
+  };
 
   function isBlank(c) {
     return !c || c === 'transparent';
@@ -60,6 +86,20 @@
       data[idx] = color;
       stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
     }
+  }
+
+  // Frequency-ranked distinct colors, most common first, capped at maxCount.
+  // Ties keep first-seen order (Array#sort is stable) for deterministic output.
+  function dominantColors(colors, maxCount) {
+    const freq = new Map();
+    const order = [];
+    colors.forEach(c => {
+      if (isBlank(c)) return;
+      if (!freq.has(c)) { freq.set(c, 0); order.push(c); }
+      freq.set(c, freq.get(c) + 1);
+    });
+    order.sort((a, b) => freq.get(b) - freq.get(a));
+    return order.slice(0, maxCount);
   }
 
   // Uint8ClampedArray-like RGBA buffer (w*h*4) -> flat array of hex/'transparent' strings.
@@ -356,7 +396,11 @@
 
     // colors: flat array (w*h) of hex/'transparent' strings, already decoded by the caller
     // (see decodeRGBAToColors for the pure RGBA->hex step).
-    importColorsAsLayer(dir, w, h, colors, layerName) {
+    // The working palette is REPLACED (not appended to) with the imported image's
+    // own top maxPaletteColors most-frequent colors, so opening a busy/large image
+    // never floods the palette with hundreds of one-off colors.
+    importColorsAsLayer(dir, w, h, colors, layerName, maxPaletteColors) {
+      maxPaletteColors = maxPaletteColors || 32;
       const sizeChanged = (w !== this.gridW || h !== this.gridH);
       if (sizeChanged) {
         this.gridW = w; this.gridH = h;
@@ -364,8 +408,8 @@
         this.undoStack = [];
         this.redoStack = [];
       }
-      const seen = new Set(this.palette);
-      colors.forEach(c => { if (!isBlank(c) && !seen.has(c)) { seen.add(c); this.palette.push(c); } });
+      const dominant = dominantColors(colors, maxPaletteColors);
+      this.palette = ['transparent', ...dominant];
 
       const f = this.ensureFrameDir(dir);
       this.layerIdCounter++;
@@ -374,7 +418,7 @@
       f.active = f.layers.length - 1;
       this.undoStack = [];
       this.redoStack = [];
-      return { layer, sizeChanged };
+      return { layer, sizeChanged, paletteColors: dominant };
     }
 
     /* ---- serialize / restore (for autosave, export, etc.) ---- */
@@ -420,9 +464,11 @@
 
   PixelEngine.DIRS = DIRS;
   PixelEngine.DEFAULT_PALETTE = DEFAULT_PALETTE;
+  PixelEngine.PALETTE_SETS = PALETTE_SETS;
   PixelEngine.brushExtent = brushExtent;
   PixelEngine.floodFillFrom = floodFillFrom;
   PixelEngine.decodeRGBAToColors = decodeRGBAToColors;
+  PixelEngine.dominantColors = dominantColors;
 
   return PixelEngine;
 });
