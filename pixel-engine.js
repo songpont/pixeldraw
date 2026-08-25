@@ -421,6 +421,105 @@
       return { layer, sizeChanged, paletteColors: dominant };
     }
 
+    // Places an importW x importH image as a NEW layer at the CURRENT canvas size —
+    // unlike importColorsAsLayer, gridW/gridH/undo history/palette are never touched.
+    // Defaults to centering the asset; content that falls outside the canvas is
+    // clipped (dropped), which the returned `clipped` flag reports.
+    importColorsAsLayerAt(dir, importW, importH, colors, layerName, offsetX, offsetY) {
+      if (offsetX === undefined) offsetX = Math.floor((this.gridW - importW) / 2);
+      if (offsetY === undefined) offsetY = Math.floor((this.gridH - importH) / 2);
+
+      const w = this.gridW, h = this.gridH;
+      const data = new Array(w * h).fill('transparent');
+      let clipped = false;
+      for (let y = 0; y < importH; y++) {
+        const dy = y + offsetY;
+        if (dy < 0 || dy >= h) { clipped = true; continue; }
+        for (let x = 0; x < importW; x++) {
+          const dx = x + offsetX;
+          if (dx < 0 || dx >= w) { clipped = true; continue; }
+          data[dy * w + dx] = colors[y * importW + x];
+        }
+      }
+
+      const f = this.ensureFrameDir(dir);
+      this.layerIdCounter++;
+      const layer = { id: this.layerIdCounter, name: layerName || ('Layer ' + this.layerIdCounter), visible: true, data };
+      f.layers.push(layer);
+      f.active = f.layers.length - 1;
+      return { layer, offsetX, offsetY, clipped };
+    }
+
+    /* ---- layer content transform (move / scale pixels within the canvas) ---- */
+
+    // Bounding box of a layer's non-transparent pixels, or null if the layer is empty.
+    layerContentBounds(dir, idx) {
+      const f = this.ensureFrameDir(dir);
+      const layer = f.layers[idx];
+      const w = this.gridW, h = this.gridH;
+      let minX = w, minY = h, maxX = -1, maxY = -1;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (!isBlank(layer.data[y * w + x])) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < 0) return null;
+      return { minX, minY, maxX, maxY };
+    }
+
+    // Shifts a layer's pixel content by (dx, dy) canvas cells. Content shifted past
+    // the canvas edge is dropped; vacated cells become transparent. No wrap-around.
+    moveLayerContent(dir, idx, dx, dy) {
+      const f = this.ensureFrameDir(dir);
+      const layer = f.layers[idx];
+      const w = this.gridW, h = this.gridH;
+      const src = layer.data;
+      const dst = new Array(w * h).fill('transparent');
+      for (let y = 0; y < h; y++) {
+        const sy = y - dy;
+        if (sy < 0 || sy >= h) continue;
+        for (let x = 0; x < w; x++) {
+          const sx = x - dx;
+          if (sx < 0 || sx >= w) continue;
+          dst[y * w + x] = src[sy * w + sx];
+        }
+      }
+      layer.data = dst;
+    }
+
+    // Scales a layer's pixel content by `factor` (nearest-neighbor), anchored on
+    // (originX, originY) — defaults to the content's own bounding-box center so it
+    // stays put wherever it currently sits, rather than drifting toward canvas center.
+    // Returns false without modifying anything if the layer has no content to scale.
+    scaleLayerContent(dir, idx, factor, originX, originY) {
+      const f = this.ensureFrameDir(dir);
+      const layer = f.layers[idx];
+      const w = this.gridW, h = this.gridH;
+      if (originX === undefined || originY === undefined) {
+        const b = this.layerContentBounds(dir, idx);
+        if (!b) return false;
+        originX = (b.minX + b.maxX + 1) / 2;
+        originY = (b.minY + b.maxY + 1) / 2;
+      }
+      const src = layer.data;
+      const dst = new Array(w * h).fill('transparent');
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const sx = Math.floor(originX + (x + 0.5 - originX) / factor);
+          const sy = Math.floor(originY + (y + 0.5 - originY) / factor);
+          if (sx < 0 || sx >= w || sy < 0 || sy >= h) continue;
+          dst[y * w + x] = src[sy * w + sx];
+        }
+      }
+      layer.data = dst;
+      return true;
+    }
+
     /* ---- serialize / restore (for autosave, export, etc.) ---- */
 
     serialize() {

@@ -731,6 +731,11 @@
       <input type="file" id="fileInput" accept="image/png,image/gif,image/webp,image/bmp" style="display:none;">
       <span class="grow"></span>
     </div>
+    <div class="tool-row">
+      <button class="tool" id="importLayerBtn" title="นำเข้าภาพเป็น layer ใหม่ โดยไม่เปลี่ยนขนาด canvas">Import as Layer…</button>
+      <input type="file" id="importLayerInput" accept="image/png,image/gif,image/webp,image/bmp" style="display:none;">
+      <span class="grow"></span>
+    </div>
     <div id="fileMeta"></div>
     <div class="hint">ลากวาด (ขวา = ลบ) • ค้าง <kbd>Space</kbd> หรือคลิกกลางแล้วลาก = เลื่อนภาพ • สกรอลล์ = ซูม<br>
     <kbd>Alt</kbd>+คลิก = ดูดสี • <kbd>Shift</kbd>+คลิก = ลากเส้นตรงต่อจากจุดล่าสุด • <kbd>Esc</kbd> = ยกเลิกการวาดที่ค้างอยู่<br>
@@ -754,6 +759,17 @@
         <button class="tool" id="delLayerBtn">Delete</button>
       </div>
       <div class="hint">เลือกเพื่อวาด • ไอคอนตา = แสดง/ซ่อน • ดับเบิลคลิกชื่อ = เปลี่ยนชื่อ</div>
+
+      <div class="section-label" style="margin-top:12px;">ย้าย / ปรับขนาด Layer ที่เลือก</div>
+      <div class="tool-row">
+        <button class="icon-btn" id="layerMoveLeft" title="เลื่อนซ้าย 1px (ค้าง Shift = 10px)">←</button>
+        <button class="icon-btn" id="layerMoveUp" title="เลื่อนขึ้น 1px (ค้าง Shift = 10px)">↑</button>
+        <button class="icon-btn" id="layerMoveDown" title="เลื่อนลง 1px (ค้าง Shift = 10px)">↓</button>
+        <button class="icon-btn" id="layerMoveRight" title="เลื่อนขวา 1px (ค้าง Shift = 10px)">→</button>
+        <div class="sep"></div>
+        <button class="tool" id="layerScaleUp" title="ขยาย layer 2 เท่า รอบจุดกึ่งกลางเนื้อหา">×2</button>
+        <button class="tool" id="layerScaleDown" title="ย่อ layer ลงครึ่งหนึ่ง">÷2</button>
+      </div>
     </div>
   </div>
 
@@ -1775,6 +1791,17 @@
     fileInput.value = '';
   });
 
+  function decodeImageToColors(img){
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const octx = off.getContext('2d');
+    octx.imageSmoothingEnabled = false;
+    octx.drawImage(img, 0, 0, w, h);
+    const imgData = octx.getImageData(0,0,w,h).data;
+    return { w, h, colors: PixelEngine.decodeRGBAToColors(imgData, w, h) };
+  }
+
   function loadImageIntoLayer(img, fileName){
     const w = img.naturalWidth, h = img.naturalHeight;
     if(w<1 || h<1 || w>512 || h>512){
@@ -1788,13 +1815,7 @@
       if(!ok) return;
     }
 
-    const off = document.createElement('canvas');
-    off.width = w; off.height = h;
-    const octx = off.getContext('2d');
-    octx.imageSmoothingEnabled = false;
-    octx.drawImage(img, 0, 0, w, h);
-    const imgData = octx.getImageData(0,0,w,h).data;
-    const colors = PixelEngine.decodeRGBAToColors(imgData, w, h);
+    const colors = decodeImageToColors(img).colors;
 
     engine.importColorsAsLayer(engine.currentDir, w, h, colors, fileName.replace(/\.[^.]+$/,''));
 
@@ -1809,6 +1830,76 @@
     resizeCanvas();
     markUI();
   }
+
+  const importLayerInput = document.getElementById('importLayerInput');
+  document.getElementById('importLayerBtn').addEventListener('click', ()=> importLayerInput.click());
+
+  importLayerInput.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      const img = new Image();
+      img.onload = ()=> importImageAsLayer(img, file.name);
+      img.onerror = ()=> alert('เปิดไฟล์นี้ไม่ได้ — ลองไฟล์ PNG/GIF/WebP/BMP');
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    importLayerInput.value = '';
+  });
+
+  function importImageAsLayer(img, fileName){
+    if(img.naturalWidth<1 || img.naturalHeight<1 || img.naturalWidth>512 || img.naturalHeight>512){
+      alert('ขนาดภาพต้องอยู่ระหว่าง 1×1 ถึง 512×512 พิกเซล');
+      return;
+    }
+    const { w, h, colors } = decodeImageToColors(img);
+
+    engine.pushUndo();
+    const result = engine.importColorsAsLayerAt(engine.currentDir, w, h, colors, fileName.replace(/\.[^.]+$/,''));
+    uiDirty = true;
+    render();
+
+    if(result.clipped){
+      flashMsg('นำเข้า ' + fileName + ' แล้ว — บางส่วนถูกตัดออกเพราะใหญ่กว่า canvas (' + engine.gridW + '×' + engine.gridH + ')');
+    } else {
+      flashMsg('นำเข้า ' + fileName + ' เป็น layer ใหม่ (' + w + '×' + h + ') โดยไม่เปลี่ยนขนาด canvas');
+    }
+  }
+
+  /* ============ layer content transform (move / scale) ============ */
+
+  function nudgeActiveLayer(dx, dy, big){
+    const step = big ? 10 : 1;
+    const dir = engine.currentDir;
+    const idx = engine.ensureFrameDir(dir).active;
+    engine.pushUndo();
+    engine.moveLayerContent(dir, idx, dx*step, dy*step);
+    uiDirty = true;
+    render();
+  }
+
+  document.getElementById('layerMoveLeft').addEventListener('click', (e)=> nudgeActiveLayer(-1, 0, e.shiftKey));
+  document.getElementById('layerMoveRight').addEventListener('click', (e)=> nudgeActiveLayer(1, 0, e.shiftKey));
+  document.getElementById('layerMoveUp').addEventListener('click', (e)=> nudgeActiveLayer(0, -1, e.shiftKey));
+  document.getElementById('layerMoveDown').addEventListener('click', (e)=> nudgeActiveLayer(0, 1, e.shiftKey));
+
+  function scaleActiveLayer(factor){
+    const dir = engine.currentDir;
+    const idx = engine.ensureFrameDir(dir).active;
+    if(!engine.layerContentBounds(dir, idx)){
+      flashMsg('Layer นี้ยังว่างอยู่ ไม่มีอะไรให้ปรับขนาด');
+      return;
+    }
+    engine.pushUndo();
+    engine.scaleLayerContent(dir, idx, factor);
+    uiDirty = true;
+    render();
+    flashMsg(factor > 1 ? 'ขยาย layer 2 เท่า' : 'ย่อ layer ลงครึ่งหนึ่ง');
+  }
+
+  document.getElementById('layerScaleUp').addEventListener('click', ()=> scaleActiveLayer(2));
+  document.getElementById('layerScaleDown').addEventListener('click', ()=> scaleActiveLayer(0.5));
 
   /* ============ export ============ */
 

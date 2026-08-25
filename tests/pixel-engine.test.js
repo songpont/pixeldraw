@@ -233,3 +233,77 @@ test('isEmpty / filledDirCount track painted directions', () => {
   assert.equal(e.isEmpty('down'), false);
   assert.equal(e.filledDirCount(), 1);
 });
+
+test('importColorsAsLayerAt places a smaller image centered without touching canvas size', () => {
+  const e = new PixelEngine({ gridW: 8, gridH: 8 });
+  const importColors = new Array(4 * 4).fill('#f00'); // solid 4x4 red square
+  const { layer, offsetX, offsetY, clipped } = e.importColorsAsLayerAt('down', 4, 4, importColors, 'asset');
+  assert.equal(e.gridW, 8, 'canvas width untouched');
+  assert.equal(e.gridH, 8, 'canvas height untouched');
+  assert.equal(offsetX, 2, 'centered horizontally: (8-4)/2');
+  assert.equal(offsetY, 2, 'centered vertically');
+  assert.equal(clipped, false);
+  // corners of the centered 4x4 block
+  assert.equal(layer.data[2 * 8 + 2], '#f00');
+  assert.equal(layer.data[5 * 8 + 5], '#f00');
+  // outside the placed block stays transparent
+  assert.equal(layer.data[0], 'transparent');
+  assert.equal(countPainted(layer.data), 16);
+});
+
+test('importColorsAsLayerAt clips content that falls outside the canvas and reports it', () => {
+  const e = new PixelEngine({ gridW: 4, gridH: 4 });
+  const importColors = new Array(6 * 6).fill('#0f0'); // bigger than the canvas
+  const { offsetX, clipped } = e.importColorsAsLayerAt('down', 6, 6, importColors, 'big');
+  assert.equal(offsetX, -1, 'centering a 6-wide asset on a 4-wide canvas yields a negative offset');
+  assert.equal(clipped, true);
+  assert.equal(e.gridW, 4, 'canvas still untouched even when the asset overflows it');
+});
+
+test('importColorsAsLayerAt does not touch the working palette (unlike importColorsAsLayer)', () => {
+  const e = new PixelEngine({ gridW: 8, gridH: 8, palette: ['transparent', '#123456'] });
+  e.importColorsAsLayerAt('down', 2, 2, ['#ff0000', '#ff0000', '#ff0000', '#ff0000'], 'asset');
+  assert.deepEqual(e.palette, ['transparent', '#123456'], 'palette is left exactly as the caller had it');
+});
+
+test('moveLayerContent shifts pixels and drops content pushed past the edge (no wrap)', () => {
+  const e = new PixelEngine({ gridW: 4, gridH: 4 });
+  const layer = e.getActiveLayer('down');
+  layer.data[0] = '#a'; // top-left corner
+  e.moveLayerContent('down', 0, 1, 1);
+  assert.equal(layer.data[1 * 4 + 1], '#a', 'pixel moved by (1,1)');
+  assert.equal(layer.data[0], 'transparent', 'old position is vacated');
+
+  // shove it off the bottom-right edge entirely
+  e.moveLayerContent('down', 0, 10, 10);
+  assert.equal(countPainted(layer.data), 0, 'content pushed off-canvas is dropped, not wrapped');
+});
+
+test('scaleLayerContent scales around the content bounding-box center by default', () => {
+  const e = new PixelEngine({ gridW: 8, gridH: 8 });
+  const layer = e.getActiveLayer('down');
+  layer.data[4 * 8 + 4] = '#a'; // single dot at (4,4)
+  const ok = e.scaleLayerContent('down', 0, 2);
+  assert.equal(ok, true);
+  // a single-pixel dot scaled 2x around its own center becomes a 2x2 block
+  assert.equal(countPainted(layer.data), 4);
+  assert.equal(layer.data[4 * 8 + 4], '#a');
+});
+
+test('scaleLayerContent returns false and leaves an empty layer untouched', () => {
+  const e = new PixelEngine({ gridW: 8, gridH: 8 });
+  const layer = e.getActiveLayer('down');
+  const before = layer.data.slice();
+  const ok = e.scaleLayerContent('down', 0, 2);
+  assert.equal(ok, false);
+  assert.deepEqual(layer.data, before);
+});
+
+test('layerContentBounds reports the tight box around painted pixels, or null when empty', () => {
+  const e = new PixelEngine({ gridW: 8, gridH: 8 });
+  const layer = e.getActiveLayer('down');
+  assert.equal(e.layerContentBounds('down', 0), null);
+  layer.data[2 * 8 + 3] = '#a';
+  layer.data[5 * 8 + 6] = '#a';
+  assert.deepEqual(e.layerContentBounds('down', 0), { minX: 3, minY: 2, maxX: 6, maxY: 5 });
+});
