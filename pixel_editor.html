@@ -784,12 +784,22 @@
         </span>
       </div>
       <div class="field" style="margin-bottom:8px;">
-        <select id="paletteSetSelect">
-          <option value="default">Default (32 สี)</option>
-          <option value="grayscale">Grayscale (32 สี)</option>
-          <option value="retro">Retro (32 สี)</option>
-          <option value="pastel">Pastel (32 สี)</option>
-        </select>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="paletteSetSelect" style="flex:1; min-width:0;">
+            <optgroup label="ชุดสำเร็จรูป">
+              <option value="default">Default (32 สี)</option>
+              <option value="grayscale">Grayscale (32 สี)</option>
+              <option value="retro">Retro (32 สี)</option>
+              <option value="pastel">Pastel (32 สี)</option>
+            </optgroup>
+            <optgroup label="ชุดของฉัน" id="customPaletteGroup"></optgroup>
+          </select>
+          <button class="icon-btn" id="createPaletteBtn" title="สร้างชุดสีใหม่จากภาพตัวอย่าง" style="width:34px;height:34px;flex-shrink:0;">+</button>
+        </div>
+        <input type="file" id="createPaletteInput" accept="image/*" style="display:none;">
+      </div>
+      <div id="deletePaletteRow" style="display:none; margin-bottom:8px;">
+        <button class="export-btn secondary" id="deletePaletteBtn" style="width:100%; padding:6px; font-size:10px;">ลบชุดสีนี้</button>
       </div>
       <div class="palette-grid" id="paletteGrid"></div>
       <div class="add-color-row">
@@ -1694,11 +1704,51 @@
   const PALETTE_SET_LABELS = { default:'Default', grayscale:'Grayscale', retro:'Retro', pastel:'Pastel' };
   let lastImportedPalette = null; // { label, colors } — cached so re-selecting "fromFile" works without re-importing
 
+  const CUSTOM_PALETTES_KEY = 'spriteforge_custom_palettes_v1';
+  let customPaletteSets = {}; // key -> { name, colors }
+
+  function loadCustomPaletteSets(){
+    try{
+      const raw = localStorage.getItem(CUSTOM_PALETTES_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed==='object') ? parsed : {};
+    }catch(err){ return {}; }
+  }
+
+  function saveCustomPaletteSets(){
+    try{ localStorage.setItem(CUSTOM_PALETTES_KEY, JSON.stringify(customPaletteSets)); }
+    catch(err){ /* storage unavailable or full — skip silently */ }
+  }
+
+  function renderCustomPaletteOptions(){
+    const group = document.getElementById('customPaletteGroup');
+    group.querySelectorAll('option[data-custom="1"]').forEach(o=>o.remove());
+    Object.keys(customPaletteSets).forEach(key=>{
+      const entry = customPaletteSets[key];
+      const opt = document.createElement('option');
+      opt.value = 'custom:' + key;
+      opt.dataset.custom = '1';
+      opt.textContent = entry.name + ' (' + (entry.colors.length-1) + ' สี)';
+      group.appendChild(opt);
+    });
+  }
+
+  function updateDeletePaletteButtonVisibility(key){
+    document.getElementById('deletePaletteRow').style.display = key.startsWith('custom:') ? 'block' : 'none';
+  }
+
   function loadPaletteSet(key){
+    updateDeletePaletteButtonVisibility(key);
     let colors, label;
     if(key === 'fromFile' && lastImportedPalette){
       colors = lastImportedPalette.colors;
       label = 'จากไฟล์: ' + lastImportedPalette.label;
+    } else if(key.indexOf('custom:') === 0){
+      const entry = customPaletteSets[key.slice(7)];
+      if(!entry) return;
+      colors = entry.colors;
+      label = entry.name;
     } else {
       colors = PixelEngine.PALETTE_SETS[key];
       label = PALETTE_SET_LABELS[key] || key;
@@ -1717,15 +1767,89 @@
   });
 
   function ensureFromFileOption(label, count){
-    const select = document.getElementById('paletteSetSelect');
-    let opt = select.querySelector('option[value="fromFile"]');
+    const group = document.getElementById('customPaletteGroup');
+    let opt = group.querySelector('option[value="fromFile"]');
     if(!opt){
       opt = document.createElement('option');
       opt.value = 'fromFile';
-      select.appendChild(opt);
+      group.appendChild(opt);
     }
     opt.textContent = 'จากไฟล์: ' + label + ' (' + count + ' สี)';
     return opt;
+  }
+
+  document.getElementById('deletePaletteBtn').addEventListener('click', ()=>{
+    const select = document.getElementById('paletteSetSelect');
+    const key = select.value;
+    if(key.indexOf('custom:') !== 0) return;
+    const rawKey = key.slice(7);
+    const entry = customPaletteSets[rawKey];
+    if(!entry) return;
+    const ok = confirm('ลบชุดสี "' + entry.name + '" ถาวร? การกระทำนี้ย้อนกลับไม่ได้');
+    if(!ok) return;
+    delete customPaletteSets[rawKey];
+    saveCustomPaletteSets();
+    renderCustomPaletteOptions();
+    select.value = 'default';
+    loadPaletteSet('default');
+    flashMsg('ลบชุดสีแล้ว');
+  });
+
+  const createPaletteInput = document.getElementById('createPaletteInput');
+  document.getElementById('createPaletteBtn').addEventListener('click', ()=> createPaletteInput.click());
+
+  createPaletteInput.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      const img = new Image();
+      img.onload = ()=> createPaletteFromImage(img, file.name);
+      img.onerror = ()=> alert('เปิดไฟล์นี้ไม่ได้ — ลองไฟล์ภาพชนิดอื่น');
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    createPaletteInput.value = '';
+  });
+
+  function createPaletteFromImage(img, fileName){
+    if(img.naturalWidth<1 || img.naturalHeight<1){
+      alert('ไม่สามารถอ่านขนาดภาพนี้ได้');
+      return;
+    }
+    // Reference images (photos, mood boards) can be huge — sample down before
+    // extracting colors. 256px on the long edge is plenty for a 32-color palette
+    // and keeps this fast even for multi-megapixel uploads.
+    const maxSample = 256;
+    const scale = Math.min(1, maxSample / Math.max(img.naturalWidth, img.naturalHeight));
+    const sw = Math.max(1, Math.round(img.naturalWidth * scale));
+    const sh = Math.max(1, Math.round(img.naturalHeight * scale));
+    const off = document.createElement('canvas');
+    off.width = sw; off.height = sh;
+    const octx = off.getContext('2d');
+    octx.drawImage(img, 0, 0, sw, sh);
+    const imgData = octx.getImageData(0,0,sw,sh).data;
+    const colors = PixelEngine.decodeRGBAToColors(imgData, sw, sh);
+    const dominant = PixelEngine.dominantColors(colors, 32);
+
+    if(!dominant.length){
+      flashMsg('ไม่พบสีที่ใช้งานได้ในภาพนี้');
+      return;
+    }
+
+    const defaultName = fileName.replace(/\.[^.]+$/, '');
+    const name = prompt('ตั้งชื่อชุดสีใหม่:', defaultName);
+    if(!name || !name.trim()) return;
+
+    const key = 'p' + Date.now();
+    customPaletteSets[key] = { name: name.trim(), colors: ['transparent', ...dominant] };
+    saveCustomPaletteSets();
+    renderCustomPaletteOptions();
+
+    const select = document.getElementById('paletteSetSelect');
+    select.value = 'custom:' + key;
+    loadPaletteSet('custom:' + key);
+    flashMsg('สร้างชุดสี "' + name.trim() + '" แล้ว (' + dominant.length + ' สี)');
   }
 
   function refreshUI(){
@@ -2032,6 +2156,9 @@
   const prefs = loadPrefs();
   applyCanvasBg(prefs.canvasBg || 'dark');
   if(typeof prefs.zoomLocked === 'boolean'){ zoomLocked = prefs.zoomLocked; updateZoomLockButton(); }
+
+  customPaletteSets = loadCustomPaletteSets();
+  renderCustomPaletteOptions();
 
   const restored = loadAutosave();
   document.getElementById('sizeW').value = engine.gridW;
