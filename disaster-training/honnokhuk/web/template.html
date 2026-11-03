@@ -1,165 +1,215 @@
 <title>ตำบลฮอนกฮูก 3 มิติ</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=Sarabun:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=Sarabun:wght@400;500;600&display=swap">
 <style>
-/* Layout: full-bleed 3D terrain; story sheet docks at the bottom on phones, at the left on wide screens. */
+/* Layout: full-bleed terrain. Phone: one bottom sheet (3 snap heights) holds story or explore tools; thumb-zone nav at its foot.
+   Wide / landscape: the sheet docks as a left column. Water-gauge rail floats on the right edge like the real staff gauge. */
 :root{
-  --bg:#eef1ec; --panel:#fbfcf9; --ink:#1d2a24; --muted:#5b6b62; --line:#d5ddd5;
-  --accent:#1f6f8b; --accent-ink:#ffffff; --warn:#c2410c; --danger:#b42318; --ok:#2f7d4f; --chip:#e4ebe4;
-  --shadow:0 6px 24px rgba(20,40,30,.18);
+  --bg:#e9eee8; --panel:#fbfcf9; --panel-2:#f0f4ef; --ink:#17231d; --muted:#5a6a61; --line:#d3dcd3;
+  --accent:#17607a; --accent-ink:#ffffff; --accent-soft:#dcebf0;
+  --warn:#b8520f; --danger:#b42318; --ok:#2f7d4f; --mud:#6b4a2c;
+  --shadow:0 8px 28px rgba(16,32,24,.18); --shadow-s:0 2px 8px rgba(16,32,24,.14);
   --f-display:"Anuphan","Sarabun",system-ui,sans-serif; --f-body:"Sarabun",system-ui,sans-serif;
+  --r:14px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0f1714; --panel:#17221e; --ink:#e6eee9; --muted:#9db0a6; --line:#2b3a34; --accent:#5fb3cf; --accent-ink:#0b1512;
-  --warn:#f08a4b; --danger:#f2766b; --ok:#6cc58f; --chip:#22302a; --shadow:0 6px 24px rgba(0,0,0,.5); color-scheme:dark}}
+  --bg:#0e1612; --panel:#16211c; --panel-2:#1d2a24; --ink:#e4ede8; --muted:#9bb0a5; --line:#2c3b34;
+  --accent:#6cbad4; --accent-ink:#08161b; --accent-soft:#1d3640; --warn:#f0904f; --danger:#f2766b; --ok:#6cc58f; --mud:#c69a6d;
+  --shadow:0 8px 28px rgba(0,0,0,.55); --shadow-s:0 2px 8px rgba(0,0,0,.45); color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0f1714; --panel:#17221e; --ink:#e6eee9; --muted:#9db0a6; --line:#2b3a34; --accent:#5fb3cf; --accent-ink:#0b1512;
-  --warn:#f08a4b; --danger:#f2766b; --ok:#6cc58f; --chip:#22302a; --shadow:0 6px 24px rgba(0,0,0,.5); color-scheme:dark}
+  --bg:#0e1612; --panel:#16211c; --panel-2:#1d2a24; --ink:#e4ede8; --muted:#9bb0a5; --line:#2c3b34;
+  --accent:#6cbad4; --accent-ink:#08161b; --accent-soft:#1d3640; --warn:#f0904f; --danger:#f2766b; --ok:#6cc58f; --mud:#c69a6d;
+  --shadow:0 8px 28px rgba(0,0,0,.55); --shadow-s:0 2px 8px rgba(0,0,0,.45); color-scheme:dark}
 html,body{height:100%}
 [hidden]{display:none!important}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;overflow:hidden}
-#app{position:fixed;inset:0;display:grid;grid-template-rows:auto auto 1fr auto;pointer-events:none}
-#scene{position:absolute;inset:0;touch-action:none}
-#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.lbl{position:absolute;transform:translate(-50%,-100%);font:600 12px/1.2 var(--f-display);white-space:nowrap;
-  background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:2px 6px;box-shadow:0 2px 6px rgba(0,0,0,.18)}
-.lbl b{display:inline-block;min-width:18px;text-align:center;border-radius:4px;color:#fff;padding:0 4px;margin-right:4px}
-.lbl.person{background:#fff4e6;color:#7a2e0b;border-color:#f3c79c}
-.lbl.broken{background:var(--danger);color:#fff;border-color:transparent}
-.lbl.hit{background:#3b2414;color:#ffd9b8;border-color:transparent}
-header{position:relative;z-index:2;display:flex;gap:8px;align-items:center;justify-content:space-between;
-  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));pointer-events:none}
-header>*{pointer-events:auto}
-.brand{background:var(--panel);border-radius:10px;padding:6px 12px;box-shadow:var(--shadow);min-width:0}
-.brand h1{font:700 17px/1.2 var(--f-display);margin:0}
-.brand p{margin:0;font-size:12px;color:var(--muted)}
-@media (max-width:600px){.brand p{display:none}.brand h1{font-size:16px}}
-.tools{display:flex;gap:6px}
-button{font:inherit;color:inherit;cursor:pointer}
-.ibtn{white-space:nowrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;height:40px;padding:0 12px;box-shadow:var(--shadow);font:600 14px var(--f-display)}
-.ibtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
-button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-#cams{position:relative;z-index:2;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 6px;pointer-events:none}
-#cams button{pointer-events:auto;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font:600 13px var(--f-display);box-shadow:0 2px 6px rgba(0,0,0,.12)}
-#cams button.on{background:var(--ink);color:var(--panel)}
-.hud{position:relative;z-index:2;align-self:start;justify-self:end;margin-right:max(16px,env(safe-area-inset-right,0px));
-  background:var(--panel);border-radius:10px;box-shadow:var(--shadow);padding:6px 10px;font-size:13px;display:grid;gap:2px;pointer-events:none}
-.hud .lv{font:700 16px var(--f-display);font-variant-numeric:tabular-nums}
-@media (max-width:600px){.hud{font-size:12px;padding:4px 8px}.hud .tag:first-child{display:none}}
-.hud .tag{font-size:12px;color:var(--muted)}
-.pill{display:inline-block;border-radius:999px;padding:0 8px;font:600 12px var(--f-display)}
-/* story sheet */
-#sheet{pointer-events:auto;position:relative;z-index:3;background:var(--panel);border-radius:16px 16px 0 0;box-shadow:var(--shadow);
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-  padding-block:6px calc(12px + env(safe-area-inset-bottom,0px));max-height:38vh;display:flex;flex-direction:column;transition:max-height .25s}
-#sheet.full{max-height:78vh}
-#grab{align-self:center;width:44px;height:5px;border-radius:3px;background:var(--line);border:0;margin:2px 0 6px;padding:0}
-.nav{display:flex;align-items:center;gap:8px}
-.nav .step{flex:1;min-width:0}
-.nav .when{font:600 13px var(--f-display);color:var(--accent)}
-.nav h2{font:700 19px/1.25 var(--f-display);margin:0;text-wrap:balance}
-.navb{flex:none;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--chip);font:700 20px var(--f-display)}
-.navb:disabled{opacity:.35}
-.dots{display:flex;gap:4px;margin:8px 0 4px}
-.dots button{flex:1;height:6px;border-radius:3px;border:0;background:var(--line);padding:0}
-.dots button.on{background:var(--accent)}
-.dots button.past{background:color-mix(in srgb,var(--accent) 45%,var(--line))}
-#body{overflow-y:auto;min-height:0}
-#body p{margin:6px 0}
-.see{background:var(--chip);border-radius:10px;padding:8px 10px;font-size:14px;margin:8px 0}
-.see b{font-family:var(--f-display)}
-.ask{margin:8px 0 4px}
-.ask h3{font:700 15px var(--f-display);margin:0 0 4px}
-.ask ol{margin:0;padding-left:22px}
-.ask li{margin:3px 0}
-#sheet.min #body{display:none}
-/* layer panel + info card */
-.pop{position:absolute;z-index:5;right:max(12px,env(safe-area-inset-right,0px));top:calc(64px + env(safe-area-inset-top,0px));width:min(320px,calc(100vw - 24px));
-  background:var(--panel);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;max-height:70vh;overflow:auto}
-.pop h3{font:700 16px var(--f-display);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
-.pop .x{border:0;background:var(--chip);border-radius:8px;width:32px;height:32px}
-.lyr{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
-.lyr:last-of-type{border-bottom:0}
-.lyr input{width:20px;height:20px;accent-color:var(--accent)}
-.sw{width:22px;height:14px;border-radius:3px;flex:none}
-.lyr span{flex:1;font-size:14px;line-height:1.3}
-.lyr small{display:block;color:var(--muted);font-size:12px}
-.range{display:grid;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
-.range input{width:100%;accent-color:var(--accent)}
-.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:14px}
-.chipk{display:inline-block;font:700 11px var(--f-display);color:#fff;border-radius:4px;padding:1px 5px;text-align:center}
-#info dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0;font-size:14px}
-#info dt{color:var(--muted)}
-#info dd{margin:0;font-variant-numeric:tabular-nums}
-#info .story{background:#fff4e6;color:#5c2a0b;border-radius:8px;padding:6px 8px;margin:8px 0;font-size:14px}
-#info .risk{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
-.rk{border-radius:999px;padding:1px 8px;font:600 12px var(--f-display);background:var(--chip)}
-.rk.r{background:var(--danger);color:#fff}.rk.o{background:var(--warn);color:#fff}.rk.b{background:var(--accent);color:var(--accent-ink)}
-.note{font-size:12px;color:var(--muted);margin-top:8px}
-#loading{position:absolute;inset:0;display:grid;place-items:center;font:600 16px var(--f-display);color:var(--muted);z-index:1}
-@media (min-width:900px){
-  #app{grid-template-columns:400px 1fr;grid-template-rows:auto auto 1fr}
-  header{grid-column:1/3}
-  #cams{grid-column:2}
-  .hud{grid-column:2;grid-row:3}
-  #sheet{grid-column:1;grid-row:2/4;margin:0 0 16px max(16px,env(safe-area-inset-left,0px));border-radius:16px;max-height:none;padding-left:18px;padding-right:18px}
-  #grab{display:none}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+svg{display:block}
+#scene{position:fixed;inset:0;touch-action:none}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;font:600 12px/1.25 var(--f-display);white-space:nowrap;display:flex;align-items:center;gap:5px;
+  background:var(--panel);color:var(--ink);border-radius:7px;padding:3px 7px;box-shadow:var(--shadow-s);will-change:transform}
+.lbl::after{content:"";position:absolute;left:50%;bottom:-4px;width:8px;height:8px;background:inherit;transform:translateX(-50%) rotate(45deg);z-index:-1}
+.lbl i{width:9px;height:9px;border-radius:50%;flex:none}
+.lbl.person{background:#fff1df;color:#6b2a08}
+.lbl.broken{background:var(--danger);color:#fff}
+.lbl.hit{background:#2e1b0e;color:#ffd9b8}
+/* ---- top bar */
+.top{position:fixed;z-index:6;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;pointer-events:none;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+.top>*{pointer-events:auto}
+.brand{font:700 16px/1.1 var(--f-display);background:var(--panel);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow-s);white-space:nowrap}
+.seg{display:flex;background:var(--panel);border-radius:12px;padding:3px;box-shadow:var(--shadow-s);margin-left:auto}
+.seg button{font:600 14px var(--f-display);padding:7px 12px;border-radius:9px;color:var(--muted);white-space:nowrap;min-height:38px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.icon{width:44px;height:44px;border-radius:12px;background:var(--panel);box-shadow:var(--shadow-s);display:grid;place-items:center;flex:none}
+.icon svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.icon[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+/* ---- right rail: tools + gauge */
+.rail{position:fixed;z-index:5;right:max(12px,env(safe-area-inset-right,0px));top:calc(66px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.gauge{position:fixed;z-index:5;left:max(12px,env(safe-area-inset-left,0px));top:calc(66px + env(safe-area-inset-top,0px));
+  background:var(--panel);border-radius:12px;box-shadow:var(--shadow-s);padding:8px 8px 6px;display:grid;justify-items:center;gap:3px;width:62px;--gh:72px;transition:opacity .2s}
+.gauge.off{opacity:0;pointer-events:none}
+.gauge .stick{position:relative;width:16px;height:var(--gh,120px);border-radius:3px;overflow:hidden;
+  background:linear-gradient(to top,#2f7d4f 0 25%,#d9a21a 25% 50%,#c0392b 50% 83%,#7b1d14 83% 100%)}
+.gauge .stick::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(to top,transparent 0 9px,rgba(255,255,255,.75) 9px 10px)}
+.gauge .fill{position:absolute;left:0;right:0;bottom:0;background:rgba(40,110,190,.78);border-top:2px solid #cfe6ff;transition:height .6s ease}
+.gauge b{font:700 15px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.gauge small{font-size:11px;line-height:1.2;color:var(--muted);text-align:center}
+/* ---- sheet */
+.sheet{position:fixed;z-index:4;left:0;right:0;bottom:0;height:var(--sh,46vh);background:var(--panel);border-radius:20px 20px 0 0;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;transition:height .28s cubic-bezier(.2,.8,.2,1)}
+.sheet.dragging{transition:none}
+.grab{flex:none;padding:8px 0 2px;touch-action:none;cursor:grab;display:grid;place-items:center}
+.grab span{width:42px;height:5px;border-radius:3px;background:var(--line)}
+.sh-head{flex:none;padding:2px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));touch-action:none}
+.kicker{display:flex;align-items:center;gap:8px;font:600 13px var(--f-display);color:var(--accent)}
+.kicker .count{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+.sh-head h2{font:700 21px/1.25 var(--f-display);margin:2px 0 0;text-wrap:balance}
+.facts{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:8px calc(-1 * max(16px,env(safe-area-inset-left,0px))) 0;padding:0 max(16px,env(safe-area-inset-left,0px))}
+.facts::-webkit-scrollbar{display:none}
+.fact{flex:none;background:var(--panel-2);border-radius:10px;padding:4px 10px;line-height:1.3}
+.fact small{display:block;font-size:11px;color:var(--muted)}
+.fact b{font:600 14px var(--f-display);white-space:nowrap}
+.fact.alert{background:color-mix(in srgb,var(--danger) 14%,var(--panel))}
+.fact.alert b{color:var(--danger)}
+.sh-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));border-top:1px solid var(--line)}
+.lead{font-size:17px;font-weight:500;margin:12px 0 4px}
+.sec{margin-top:14px}
+.sec h3{font:700 15px var(--f-display);margin:0 0 2px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.sec h3::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--accent)}
+.sec p{margin:4px 0;max-width:62ch}
+.mapnote{margin-top:16px;display:flex;gap:10px;align-items:flex-start;background:var(--accent-soft);border-radius:12px;padding:10px 12px;font-size:14px}
+.mapnote svg{width:20px;height:20px;flex:none;margin-top:2px;stroke:var(--accent);fill:none;stroke-width:2}
+.sh-foot{flex:none;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.btn{min-height:48px;border-radius:12px;padding:0 16px;font:600 16px var(--f-display);display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:var(--panel-2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);flex:1}
+.btn:disabled{opacity:.35;cursor:default}
+.track{display:flex;gap:3px;flex:1;min-width:0}
+.track button{flex:1;height:28px;display:grid;align-items:center}
+.track button::before{content:"";height:6px;border-radius:3px;background:var(--line)}
+.track button.past::before{background:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.track button.on::before{background:var(--accent);height:10px}
+.sh-foot.story{flex-wrap:wrap}
+.sh-foot.story .track{order:-1;flex-basis:100%}
+/* explore */
+.group{margin-top:16px}
+.group h3{font:700 13px var(--f-display);letter-spacing:.04em;color:var(--muted);margin:0 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--panel-2);border-radius:999px;padding:8px 14px;font:600 14px var(--f-display);min-height:40px}
+.chip.on{background:var(--ink);color:var(--panel)}
+.sw{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.sw:last-child{border-bottom:0}
+.sw .swatch{width:26px;height:18px;border-radius:4px;flex:none}
+.sw span{flex:1;line-height:1.35}
+.sw small{display:block;color:var(--muted);font-size:13px}
+.toggle{appearance:none;-webkit-appearance:none;width:46px;height:28px;border-radius:14px;background:var(--line);position:relative;flex:none;cursor:pointer;transition:background .2s}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.toggle:checked{background:var(--accent)}
+.toggle:checked::after{transform:translateX(18px)}
+.lvls{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.lvls button{background:var(--panel-2);border-radius:10px;padding:6px 4px;font:600 13px/1.25 var(--f-display);min-height:48px}
+.lvls button small{display:block;font:500 11px var(--f-body);color:var(--muted)}
+.lvls button.on{background:var(--accent);color:var(--accent-ink)}
+.lvls button.on small{color:inherit}
+.slider{display:grid;gap:2px;margin-top:10px}
+.slider label{display:flex;justify-content:space-between;font-size:14px}
+.slider input{width:100%;accent-color:var(--accent);height:32px}
+.stat{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.stat div{background:var(--panel-2);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font:700 22px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:12px}
+/* popover (layers while in story) */
+.pop{position:fixed;z-index:7;right:max(12px,env(safe-area-inset-right,0px));top:calc(66px + env(safe-area-inset-top,0px));width:min(340px,calc(100vw - 24px));
+  max-height:calc(100% - 200px);overflow:auto;background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow);padding:6px 14px 10px}
+.pop-h{display:flex;align-items:center;justify-content:space-between;padding:6px 0 2px;font:700 16px var(--f-display)}
+.pop-h .icon{box-shadow:none;background:var(--panel-2);width:36px;height:36px}
+.note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+/* info */
+.info-tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.tag{border-radius:999px;padding:2px 10px;font:600 13px var(--f-display);background:var(--panel-2)}
+.tag.r{background:var(--danger);color:#fff}.tag.o{background:var(--warn);color:#fff}.tag.b{background:var(--accent);color:var(--accent-ink)}
+.story-box{background:#fff1df;color:#5c2a0b;border-radius:12px;padding:10px 12px;margin:8px 0}
+.story-box.dark{background:#2e1b0e;color:#ffd9b8}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.kv div{background:var(--panel-2);border-radius:10px;padding:6px 10px;min-width:0}
+.kv small{display:block;color:var(--muted);font-size:12px}
+.kv b{font:600 15px var(--f-display);font-variant-numeric:tabular-nums}
+.kv div.hl{background:color-mix(in srgb,var(--warn) 16%,var(--panel))}
+.kv div.wide{grid-column:1/-1}
+/* hint + loading */
+.hint{position:fixed;z-index:8;left:50%;top:30%;transform:translate(-50%,-50%);background:rgba(15,25,20,.82);color:#fff;border-radius:14px;padding:12px 16px;
+  font:600 15px/1.5 var(--f-display);text-align:center;pointer-events:none;transition:opacity .4s;max-width:80vw}
+.loading{position:fixed;inset:0;z-index:9;display:grid;place-items:center;background:var(--bg);font:600 16px var(--f-display);color:var(--muted)}
+/* wide screens and landscape phones: sheet docks left */
+@media (min-width:900px), (orientation:landscape) and (max-height:540px){
+  .sheet{top:calc(64px + env(safe-area-inset-top,0px));bottom:12px;left:max(12px,env(safe-area-inset-left,0px));right:auto;width:min(430px,46vw);height:auto!important;border-radius:var(--r)}
+  .grab{display:none}
+  .sh-foot{padding-bottom:10px;border-radius:0 0 var(--r) var(--r)}
 }
+@media (min-width:900px), (orientation:landscape) and (max-height:540px){
+  .gauge{left:auto;right:max(12px,env(safe-area-inset-right,0px));top:calc(170px + env(safe-area-inset-top,0px))}
+}
+@media (orientation:landscape) and (max-height:540px){
+  .sh-foot.story .track{display:none}
+  .btn{min-height:42px}
+  .gauge{top:calc(160px + env(safe-area-inset-top,0px))}
+  .top{padding-top:calc(6px + env(safe-area-inset-top,0px))}
+  .sheet{top:calc(56px + env(safe-area-inset-top,0px));bottom:8px}
+  .rail{top:calc(56px + env(safe-area-inset-top,0px))}
+  .sh-head h2{font-size:18px}
+}
+@media (max-width:380px){.brand{display:none}.seg{margin-left:0}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
 <div id="scene"></div>
 <div id="labels"></div>
-<div id="loading">กำลังสร้างภูมิประเทศ…</div>
-<div id="app">
-  <header>
-    <div class="brand"><h1>ตำบลฮอนกฮูก</h1><p>ชุมชนจำลอง · ภูมิประเทศจริง เขาหลวง นครศรีธรรมราช</p></div>
-    <div class="tools">
-      <button class="ibtn" id="bLayers" aria-pressed="false">ชั้นข้อมูล</button>
-      <button class="ibtn" id="bLegend" aria-pressed="false" aria-label="คำอธิบายสัญลักษณ์">?</button>
-    </div>
-  </header>
-  <nav id="cams" aria-label="มุมกล้อง"></nav>
-  <div class="hud" aria-live="polite"><span class="tag">ระดับน้ำเหนือคลอง</span><span class="lv" id="hLv">0.0 ม.</span><span id="hTag"></span></div>
-  <section id="sheet" aria-label="เรื่องเล่า">
-    <button id="grab" aria-label="ย่อหรือขยายเรื่องเล่า"></button>
-    <div class="nav">
-      <button class="navb" id="prev" aria-label="ช่วงก่อนหน้า">‹</button>
-      <div class="step"><div class="when" id="when"></div><h2 id="stitle"></h2></div>
-      <button class="navb" id="next" aria-label="ช่วงถัดไป">›</button>
-    </div>
-    <div class="dots" id="dots"></div>
-    <div id="body"></div>
-  </section>
-</div>
 
-<div class="pop" id="layers" hidden>
-  <h3>ชั้นข้อมูล <button class="x" data-close="layers" aria-label="ปิด">✕</button></h3>
-  <label class="lyr"><input type="checkbox" id="L_zone"><i class="sw" style="background:linear-gradient(90deg,#1e4f9c,#4f8fd6,#a7c9ef)"></i><span>พื้นที่เสี่ยงน้ำท่วม 3 ระดับ<small>เข้ม = ท่วมทุกปี · กลาง = ปีน้ำมาก · อ่อน = ปีวิกฤต</small></span></label>
-  <label class="lyr"><input type="checkbox" id="L_flash"><i class="sw" style="background:#f08a24"></i><span>เส้นทางน้ำป่าไหลหลาก<small>ทางน้ำจากภูเขาที่มีพื้นที่รับน้ำมาก</small></span></label>
-  <label class="lyr"><input type="checkbox" id="L_pond"><i class="sw" style="background:#8b3fa6"></i><span>จุดน้ำขัง (แอ่ง)<small>น้ำค้างนานหลังน้ำลด แหล่งยุงและเชื้อโรค</small></span></label>
-  <label class="lyr"><input type="checkbox" id="L_ls"><i class="sw" style="background:#c62828"></i><span>ลาดชันเสี่ยงดินถล่ม<small>ความชันมาก + ร่องรับน้ำบนเขา</small></span></label>
-  <label class="lyr"><input type="checkbox" id="L_vul" checked><i class="sw" style="background:#e8590c"></i><span>ครัวเรือนกลุ่มเปราะบาง<small>ติดเตียง ฟอกไต ตั้งครรภ์ ใช้ออกซิเจน จิตเวช</small></span></label>
-  <label class="lyr"><input type="checkbox" id="L_evac"><i class="sw" style="background:#2f9e44"></i><span>เส้นทางอพยพ<small>ไปวัดควนนกฮูก / ที่ทำการ อบต.</small></span></label>
-  <label class="lyr"><input type="checkbox" id="L_water" checked><i class="sw" style="background:#3a86c8"></i><span>น้ำท่วมตามเรื่องเล่า</span></label>
-  <div class="range">
-    <label for="lvl"><b>ลองปรับระดับน้ำเอง</b> <span id="lvlv"></span></label>
-    <input type="range" id="lvl" min="0" max="7" step="0.1" value="0">
-    <label for="exag">ขยายความสูงภูเขา <span id="exv"></span></label>
-    <input type="range" id="exag" min="1" max="3" step="0.1" value="1.8">
+<div class="top">
+  <div class="brand">ตำบลฮอนกฮูก</div>
+  <div class="seg" role="group" aria-label="โหมด">
+    <button id="mStory" aria-pressed="true">เรื่องเล่า</button>
+    <button id="mExplore" aria-pressed="false">สำรวจแผนที่</button>
   </div>
+  <button class="icon" id="bHelp" aria-label="วิธีใช้และสัญลักษณ์" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5h.01"/></svg></button>
 </div>
 
-<div class="pop" id="legend" hidden>
-  <h3>สัญลักษณ์ <button class="x" data-close="legend" aria-label="ปิด">✕</button></h3>
-  <div class="legend" id="legendBody"></div>
-  <p class="note">ลากหนึ่งนิ้วเพื่อหมุน · สองนิ้วเพื่อซูมหรือเลื่อน · แตะบ้านหรืออาคารเพื่อดูข้อมูล</p>
-  <p class="note">ภูมิประเทศจาก SRTM (ความละเอียดประมาณ 19 เมตร) ส่วนผังชุมชน ผู้คน และเหตุการณ์เป็นเรื่องสมมติเพื่อการอบรม แบบจำลองน้ำเป็นแบบง่าย (คำนวณจากความสูงเหนือทางน้ำที่ใกล้ที่สุด) ใช้เพื่อการเรียนรู้เท่านั้น ไม่ใช่การพยากรณ์</p>
+<div class="rail">
+  <button class="icon" id="bLayers" aria-label="ชั้นข้อมูล" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg></button>
+  <button class="icon" id="bRecenter" aria-label="กลับไปมุมมองของช่วงนี้"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg></button>
+  </div>
+<div class="gauge" id="gauge" aria-live="polite" title="ระดับน้ำเหนือคลอง">
+    <div class="stick"><div class="fill" id="gFill"></div></div>
+    <b id="gVal">0.0</b><small>ม. เหนือคลอง</small>
+    <small id="gWet"></small>
 </div>
 
-<div class="pop" id="info" hidden></div>
+<section class="sheet" id="sheet" aria-label="แผงข้อมูล">
+  <div class="grab" id="grab" role="button" tabindex="0" aria-label="ลากเพื่อย่อหรือขยาย"><span></span></div>
+  <div class="sh-head" id="shHead"></div>
+  <div class="sh-body" id="shBody"></div>
+  <div class="sh-foot" id="shFoot"></div>
+</section>
+
+<div class="pop" id="pop" hidden></div>
+<div class="hint" id="hint">ลากหนึ่งนิ้วเพื่อหมุน<br>ใช้สองนิ้วเพื่อซูมและเลื่อน<br>แตะบ้านเพื่อดูว่าใครอยู่ในบ้าน</div>
+<div class="loading" id="loading">กำลังสร้างภูมิประเทศ…</div>
+
+<template id="tLayers">
+  <label class="sw"><i class="swatch" style="background:linear-gradient(90deg,#1e4f9c,#4f8fd6,#a7c9ef)"></i><span>พื้นที่เสี่ยงน้ำท่วม<small>เข้ม = ท่วมทุกปี · กลาง = ปีน้ำมาก · อ่อน = ปีวิกฤต</small></span><input class="toggle" type="checkbox" data-l="zone"></label>
+  <label class="sw"><i class="swatch" style="background:#f08a24"></i><span>เส้นทางน้ำป่าไหลหลาก<small>ทางน้ำจากภูเขาที่รับน้ำจากพื้นที่กว้าง</small></span><input class="toggle" type="checkbox" data-l="flash"></label>
+  <label class="sw"><i class="swatch" style="background:#c62828"></i><span>ลาดชันเสี่ยงดินถล่ม<small>ความชันมากและเป็นร่องรับน้ำ</small></span><input class="toggle" type="checkbox" data-l="ls"></label>
+  <label class="sw"><i class="swatch" style="background:#8b3fa6"></i><span>แอ่งน้ำขัง<small>น้ำค้างนานหลังน้ำลด</small></span><input class="toggle" type="checkbox" data-l="pond"></label>
+  <label class="sw"><i class="swatch" style="background:#e8590c"></i><span>บ้านที่มีกลุ่มเปราะบาง<small>ติดเตียง ฟอกไต ตั้งครรภ์ ใช้ออกซิเจน จิตเวช</small></span><input class="toggle" type="checkbox" data-l="vul"></label>
+  <label class="sw"><i class="swatch" style="background:repeating-linear-gradient(90deg,#2f9e44 0 6px,transparent 6px 9px)"></i><span>เส้นทางอพยพ<small>ไปวัดควนนกฮูก หรือที่ทำการ อบต.</small></span><input class="toggle" type="checkbox" data-l="evac"></label>
+  <label class="sw"><i class="swatch" style="background:#3a86c8"></i><span>แสดงน้ำท่วม</span><input class="toggle" type="checkbox" data-l="water"></label>
+</template>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -171,36 +221,42 @@ const DATA = /*DATA*/null;
 const V = DATA.village, S = DATA.story, N = DATA.n, CELL = DATA.cell, UNIT = 10;
 const W = (N - 1) * CELL / UNIT;
 const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 const elev = new Uint16Array(b64(DATA.elev).buffer);
 const handA = b64(DATA.hand);
 const Z = (x, y) => { x = Math.max(0, Math.min(N - 1, Math.round(x))); y = Math.max(0, Math.min(N - 1, Math.round(y))); return elev[y * N + x] / 10; };
-const HAND = (x, y) => handA[Math.round(y) * N + Math.round(x)] / 20;
 let exag = 1.8;
 const wx = x => (x - (N - 1) / 2) * CELL / UNIT, wz = y => (y - (N - 1) / 2) * CELL / UNIT;
 const wy = z => (z - DATA.zmin) * exag / UNIT;
+const LV = V.levels;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const KIND = {hospital:["รพ.สต.","#c92a2a"],school:["ร.ร.","#1971c2"],childcare:["ศพด.","#e8590c"],temple:["วัด","#b8860b"],
-  office:["อบต.","#5f3dc4"],mosque:["มัสยิด","#0b7285"],water:["ประปา","#1098ad"],market:["ตลาด","#868e96"],gauge:["วัดน้ำ","#2b8a3e"]};
-const SHORT = {F1:"รพ.สต.",F2:"โรงเรียน",F3:"ศพด.",F4:"วัด (ศูนย์อพยพ)",F5:"อบต. (ศูนย์อพยพสำรอง)",F6:"มัสยิด",F7:"ประปาหมู่บ้าน",F8:"ตลาด",F9:"ไม้วัดระดับน้ำ"};
+const KIND = {hospital:["รพ.สต.","#c92a2a"],school:["โรงเรียน","#1971c2"],childcare:["ศพด.","#e8590c"],temple:["วัด","#b8860b"],
+  office:["อบต.","#5f3dc4"],mosque:["มัสยิด","#0b7285"],water:["ประปา","#1098ad"],market:["ตลาด","#868e96"],gauge:["ไม้วัดน้ำ","#2b8a3e"]};
+const SHORT = {F1:"รพ.สต.",F2:"โรงเรียน",F3:"ศูนย์เด็กเล็ก",F4:"วัด · ศูนย์อพยพ",F5:"อบต. · ศูนย์อพยพ",F6:"มัสยิด",F7:"ประปา",F8:"ตลาด",F9:"ไม้วัดระดับน้ำ"};
+const IC = {
+  prev:'<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>', next:'<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+  restart:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+  map:'<svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>',
+  close:'<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>', back:'<svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>'};
 
-// ---------- renderer
+// ================= renderer & scene
 const host = $("scene");
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
 host.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-const skyCol = () => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#eef1ec";
+const skyCol = () => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#e9eee8";
 scene.background = new THREE.Color(skyCol());
 const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 4000);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.maxPolarAngle = 1.45; controls.minDistance = 15; controls.maxDistance = 900;
-controls.screenSpacePanning = false;
+controls.enableDamping = true; controls.dampingFactor = .12; controls.maxPolarAngle = 1.42; controls.minDistance = 20; controls.maxDistance = 900;
+controls.screenSpacePanning = false; controls.rotateSpeed = .6;
+controls.touches = {ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN};
 
-// ---------- terrain
 const geo = new THREE.PlaneGeometry(W, W, N - 1, N - 1);
 geo.rotateX(-Math.PI / 2);
-const pos = geo.attributes.position;
 const handAttr = new Float32Array(N * N), zAttr = new Float32Array(N * N);
 for (let i = 0; i < N * N; i++) { zAttr[i] = elev[i] / 10; handAttr[i] = handA[i] / 20; }
 geo.setAttribute("hand", new THREE.BufferAttribute(handAttr, 1));
@@ -211,9 +267,9 @@ const hazTex = loader.load(DATA.haz);
 const U = {
   base:{value:baseTex}, haz:{value:hazTex}, exag:{value:exag}, zmin:{value:DATA.zmin}, unit:{value:UNIT},
   showZone:{value:0}, showFlash:{value:0}, showPond:{value:0}, showLS:{value:0}, flashOn:{value:0}, time:{value:0},
-  slide:{value:new THREE.Vector3(0,0,0)}, lv1:{value:V.levels.yearly}, lv2:{value:V.levels.heavy}, lv3:{value:V.levels.extreme}
+  slide:{value:new THREE.Vector3(0,0,0)}, lv1:{value:LV.yearly}, lv2:{value:LV.heavy}, lv3:{value:LV.extreme}
 };
-const terrainMat = new THREE.ShaderMaterial({uniforms:U, vertexShader:`
+const terrain = new THREE.Mesh(geo, new THREE.ShaderMaterial({uniforms:U, vertexShader:`
   attribute float hand; attribute float elev; varying vec2 vUv; varying float vHand; varying vec2 vXZ;
   uniform float exag, zmin, unit;
   void main(){ vUv=uv; vHand=hand; vec3 p=position; p.y=(elev-zmin)*exag/unit; vXZ=p.xz;
@@ -224,237 +280,338 @@ const terrainMat = new THREE.ShaderMaterial({uniforms:U, vertexShader:`
   void main(){
     vec3 c=texture2D(base,vUv).rgb; vec3 h=texture2D(haz,vUv).rgb;
     if(showZone>.5){ vec3 z=vHand<=lv1?vec3(.12,.31,.61):vHand<=lv2?vec3(.31,.56,.84):vHand<=lv3?vec3(.65,.79,.94):vec3(-1.);
-      if(z.x>=0.) c=mix(c,z,.62); }
+      if(z.x>=0.) c=mix(c,z,.6); }
     if(showLS>.5){ float t=smoothstep(.55,.9,h.r); c=mix(c,vec3(.78,.16,.16),t*.65); }
     if(showPond>.5){ float t=smoothstep(.12,.5,h.b); c=mix(c,vec3(.55,.25,.65),t*.8); }
     float fl=smoothstep(.3,.7,h.g);
-    if(showFlash>.5) c=mix(c,vec3(.94,.54,.14),fl*.7);
-    if(flashOn>.5){ float s=.5+.5*sin((vXZ.x*.35+vXZ.y*.12)-time*5.); c=mix(c,vec3(.55,.36,.18),fl*(.45+.4*s)); }
+    if(showFlash>.5) c=mix(c,vec3(.94,.54,.14),fl*.65);
+    if(flashOn>.5){ float s=.5+.5*sin((vXZ.x*.35+vXZ.y*.12)-time*5.); c=mix(c,vec3(.55,.36,.18),fl*(.4+.4*s)); }
     if(slide.z>0.){ float d=length(vXZ-slide.xy); float t=(1.-smoothstep(slide.z*.6,slide.z,d))*smoothstep(.35,.6,h.r+.25);
       c=mix(c,vec3(.42,.28,.16),t*.9); }
     gl_FragColor=vec4(c,1.);
-  }`});
-const terrain = new THREE.Mesh(geo, terrainMat);
+  }`}));
 scene.add(terrain);
 
-// ---------- water (same grid, lifted to the flood surface)
 const WU = {level:{value:0}, exag:U.exag, zmin:U.zmin, unit:U.unit, time:U.time};
-const waterMat = new THREE.ShaderMaterial({uniforms:WU, transparent:true, depthWrite:false, vertexShader:`
+const water = new THREE.Mesh(geo, new THREE.ShaderMaterial({uniforms:WU, transparent:true, depthWrite:false, vertexShader:`
   attribute float hand; attribute float elev; uniform float level, exag, zmin, unit; varying float vD; varying vec2 vXZ;
   void main(){ vec3 p=position; float d=level-hand; vD=d; vXZ=p.xz; p.y=(elev-zmin+max(d,0.)+.05)*exag/unit;
     gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
  fragmentShader:`
   uniform float time; varying float vD; varying vec2 vXZ;
   void main(){ if(vD<=0.02) discard; float a=clamp(.45+vD*.12,.45,.85);
-    vec3 shallow=vec3(.45,.68,.80), deep=vec3(.12,.33,.55); vec3 c=mix(shallow,deep,clamp(vD/4.,0.,1.));
-    c+= .04*sin(vXZ.x*.8+time*1.5)*sin(vXZ.y*.7-time);
-    gl_FragColor=vec4(c,a); }`});
-const water = new THREE.Mesh(geo, waterMat);
+    vec3 c=mix(vec3(.45,.68,.80),vec3(.12,.33,.55),clamp(vD/4.,0.,1.));
+    c+=.04*sin(vXZ.x*.8+time*1.5)*sin(vXZ.y*.7-time);
+    gl_FragColor=vec4(c,a); }`}));
 water.renderOrder = 2; scene.add(water);
+let waterShown = 0, waterTarget = 0;
 
-// ---------- buildings
 const hh = V.households;
 const isVul = h => h.bedridden || h.dialysis || h.pregnant || h.psych || (h.story && /ออกซิเจน/.test(h.story));
 const boxG = new THREE.BoxGeometry(1, 1, 1); boxG.translate(0, .5, 0);
 const houseMesh = new THREE.InstancedMesh(boxG, new THREE.MeshLambertMaterial(), hh.length);
-const dummy = new THREE.Object3D();
+scene.add(houseMesh);
 scene.add(new THREE.HemisphereLight(0xffffff, 0x667766, .9));
 const sun = new THREE.DirectionalLight(0xffffff, .55); sun.position.set(-1, 2, -1); scene.add(sun);
+const dummy = new THREE.Object3D();
 function placeHouses(){
-  hh.forEach((h, i) => { dummy.position.set(wx(h.x), wy(h.elev), wz(h.y)); const s = h.story ? 2.6 : 2.0;
-    dummy.scale.set(s, 1.6, s); dummy.rotation.y = (i * 0.7) % 1.2; dummy.updateMatrix(); houseMesh.setMatrixAt(i, dummy.matrix); });
+  hh.forEach((h, i) => { dummy.position.set(wx(h.x), wy(h.elev), wz(h.y)); const s = h.story ? 2.8 : 2.1;
+    dummy.scale.set(s, 1.7, s); dummy.rotation.y = (i * 0.7) % 1.2; dummy.updateMatrix(); houseMesh.setMatrixAt(i, dummy.matrix); });
   houseMesh.instanceMatrix.needsUpdate = true;
 }
-scene.add(houseMesh);
-const facMeshes = V.facilities.map(f => {
-  const col = KIND[f.kind][1];
-  const m = new THREE.Mesh(boxG, new THREE.MeshLambertMaterial({color:col}));
-  m.userData = {fac:f}; scene.add(m); return m; });
+const facMeshes = V.facilities.map(f => { const m = new THREE.Mesh(boxG, new THREE.MeshLambertMaterial({color:KIND[f.kind][1]})); m.userData = {fac:f}; scene.add(m); return m; });
 function placeFac(){ facMeshes.forEach(m => { const f = m.userData.fac; const big = ["school","temple","office","hospital"].includes(f.kind);
-  m.position.set(wx(f.x), wy(f.elev), wz(f.y)); m.scale.set(big ? 4.5 : 3, big ? 3 : 2.4, big ? 3.2 : 3); }); }
-
-// evacuation routes
+  m.position.set(wx(f.x), wy(f.elev), wz(f.y)); m.scale.set(big ? 4.8 : 3.2, big ? 3.2 : 2.6, big ? 3.4 : 3.2); }); }
 const evacGroup = new THREE.Group(); scene.add(evacGroup);
 function buildEvac(){
   evacGroup.clear();
   V.evac.forEach(r => { const pts = r.pts.map(([x, y]) => new THREE.Vector3(wx(x), wy(Z(x, y)) + 1.2, wz(y)));
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    const l = new THREE.Line(g, new THREE.LineDashedMaterial({color:0x2f9e44, dashSize:3, gapSize:2, linewidth:2}));
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({color:0x2f9e44, dashSize:3, gapSize:2}));
     l.computeLineDistances(); evacGroup.add(l); });
 }
 
-// ---------- labels (HTML overlay)
-const labelHost = $("labels"); const labels = [];
-function addLabel(html, x, y, z, cls, test){ const el = document.createElement("div"); el.className = "lbl " + (cls || ""); el.innerHTML = html;
-  labelHost.appendChild(el); const L = {el, x, y, z, test}; labels.push(L); return L; }
-V.facilities.forEach(f => addLabel(`<b style="background:${KIND[f.kind][1]};min-width:10px;height:10px;padding:0;border-radius:50%"></b>${SHORT[f.id]}`, f.x, f.y, f.elev + 25, ""));
-const PEOPLE = hh.filter(h => h.story).map(h => { const name = h.story.split(" ")[0].replace(/^บ้าน/, ""); return addLabel(name, h.x, h.y, h.elev + 14, "person", () => layers.vul); });
-V.bridges.forEach(b => { b.lbl = addLabel("✕ " + b.name + " ขาด", b.x, b.y, Z(b.x, b.y) + 12, "broken", () => state.broken.includes(b.id)); });
+// ================= state
+const DEFAULT_LAYERS = {zone:false, flash:false, pond:false, ls:false, vul:true, evac:false, water:true};
+const STAGE_LAYERS = [{}, {}, {}, {flash:true}, {flash:true, ls:true}, {evac:true, ls:true}, {pond:true}, {zone:true, flash:true, pond:true, ls:true, evac:true}];
+const state = {mode:"story", i:0, override:{}, explore:{layers:{...DEFAULT_LAYERS}, level:0, place:null}, info:null};
 const HIT = hh.filter(h => h.hit);
-const hitLbl = HIT.length ? addLabel("! ดินถล่มทับบ้าน 3 หลัง", HIT[0].x, HIT[0].y, HIT[0].elev + 30, "hit", () => state.landslide) : null;
-const v3 = new THREE.Vector3();
-function drawLabels(){
-  const w = host.clientWidth, h = host.clientHeight; const camD = camera.position.distanceTo(controls.target);
-  labels.forEach(L => { const on = !L.test || L.test(); if (!on) { L.el.hidden = true; return; }
-    v3.set(wx(L.x), wy(L.z), wz(L.y)).project(camera);
-    if (v3.z > 1 || Math.abs(v3.x) > 1.1 || Math.abs(v3.y) > 1.1) { L.el.hidden = true; return; }
-    L.el.hidden = (L.el.classList.contains("person") && camD > 420);
-    L.el.style.left = ((v3.x + 1) / 2 * w) + "px"; L.el.style.top = ((1 - v3.y) / 2 * h) + "px"; });
+function eff(){
+  if (state.mode === "story") { const s = S.stages[state.i];
+    return {layers:{...DEFAULT_LAYERS, ...STAGE_LAYERS[state.i], ...state.override}, level:s.level, broken:s.broken, landslide:s.landslide, flash:s.flash}; }
+  return {layers:state.explore.layers, level:state.explore.level, broken:[], landslide:false, flash:false};
 }
 
-// ---------- state
-const layers = {zone:false, flash:false, pond:false, ls:false, vul:true, evac:false, water:true};
-const state = {i:0, level:0, broken:[], landslide:false, flash:false, manual:null};
-const C_HOUSE = new THREE.Color("#efe6d2"), C_VUL = new THREE.Color("#e8590c"), C_WET = new THREE.Color("#5b8fc0"), C_HIT = new THREE.Color("#3b2414");
-function colorHouses(){
-  const L = currentLevel();
+// ================= labels with simple collision avoidance
+const labelHost = $("labels"); const labels = [];
+function addLabel(html, x, y, z, cls, prio, test){ const el = document.createElement("div"); el.className = "lbl " + (cls || ""); el.innerHTML = html;
+  labelHost.appendChild(el); const L = {el, x, y, z, prio, test, w:0, h:0}; labels.push(L); return L; }
+V.facilities.forEach(f => addLabel(`<i style="background:${KIND[f.kind][1]}"></i>${SHORT[f.id]}`, f.x, f.y, f.elev + 22, "", f.kind === "hospital" || f.kind === "temple" || f.kind === "office" ? 3 : 2));
+hh.filter(h => h.story).forEach(h => addLabel(esc(h.story.split(" ")[0].replace(/^บ้าน/, "")), h.x, h.y, h.elev + 12, "person", 1, e => e.layers.vul));
+V.bridges.forEach(b => addLabel("สะพานขาด", b.x, b.y, Z(b.x, b.y) + 10, "broken", 5, e => e.broken.includes(b.id)));
+if (HIT.length) addLabel("ดินถล่มทับบ้าน 3 หลัง", HIT[0].x, HIT[0].y, HIT[0].elev + 26, "hit", 6, e => e.landslide);
+labels.sort((a, b) => b.prio - a.prio);
+const v3 = new THREE.Vector3();
+function drawLabels(E){
+  const w = innerWidth, h = innerHeight; const placed = [];
+  const sr = sheetRect();
+  labels.forEach(L => {
+    if (L.test && !L.test(E)) { L.el.hidden = true; return; }
+    v3.set(wx(L.x), wy(L.z), wz(L.y)).project(camera);
+    if (v3.z > 1) { L.el.hidden = true; return; }
+    const sx = (v3.x + 1) / 2 * w, sy = (1 - v3.y) / 2 * h;
+    if (!L.w) { L.el.hidden = false; L.w = L.el.offsetWidth; L.h = L.el.offsetHeight; }
+    const r = {x:sx - L.w / 2, y:sy - L.h - 6, w:L.w, h:L.h};
+    const off = r.x < 4 || r.x + r.w > w - 4 || r.y < 0 || r.y + r.h > h || (sr && r.x < sr.right && r.x + r.w > sr.left && r.y + r.h > sr.top && r.y < sr.bottom);
+    const clash = placed.some(p => r.x < p.x + p.w + 4 && r.x + r.w + 4 > p.x && r.y < p.y + p.h + 2 && r.y + r.h + 2 > p.y);
+    if (off || clash) { L.el.hidden = true; return; }
+    placed.push(r); L.el.hidden = false; L.el.style.transform = `translate(${r.x | 0}px,${r.y | 0}px)`;
+  });
+}
+
+// ================= apply state to scene
+const C_HOUSE = new THREE.Color("#efe6d2"), C_VUL = new THREE.Color("#e8590c"), C_WET = new THREE.Color("#4f86bd"), C_HIT = new THREE.Color("#2e1b0e");
+let lastE = null;
+function apply(){
+  const E = eff(); lastE = E;
+  U.showZone.value = +E.layers.zone; U.showFlash.value = +E.layers.flash; U.showPond.value = +E.layers.pond; U.showLS.value = +E.layers.ls;
+  evacGroup.visible = E.layers.evac; water.visible = E.layers.water; waterTarget = E.level;
+  U.flashOn.value = +(E.flash && E.layers.water);
+  if (E.landslide && HIT.length) { const cx = HIT.reduce((a, h) => a + h.x, 0) / HIT.length, cy = HIT.reduce((a, h) => a + h.y, 0) / HIT.length;
+    U.slide.value.set(wx(cx - 5), wz(cy), 14); } else U.slide.value.set(0, 0, 0);
   hh.forEach((h, i) => { let c = C_HOUSE;
-    if (layers.vul && isVul(h)) c = C_VUL;
-    if (layers.water && h.hand < L - 0.3) c = c.clone().lerp(C_WET, .65);
-    if (state.landslide && h.hit) c = C_HIT;
+    if (E.layers.vul && isVul(h)) c = C_VUL;
+    if (E.layers.water && h.hand < E.level - 0.3) c = c.clone().lerp(C_WET, .65);
+    if (E.landslide && h.hit) c = C_HIT;
     houseMesh.setColorAt(i, c); });
   houseMesh.instanceColor.needsUpdate = true;
-}
-const currentLevel = () => state.manual != null ? state.manual : state.level;
-function applyLayers(){
-  U.showZone.value = +layers.zone; U.showFlash.value = +layers.flash; U.showPond.value = +layers.pond; U.showLS.value = +layers.ls;
-  evacGroup.visible = layers.evac; water.visible = layers.water; WU.level.value = currentLevel();
-  U.flashOn.value = +(state.flash && layers.water);
-  if (state.landslide && HIT.length) { const cx = HIT.reduce((a, h) => a + h.x, 0) / HIT.length, cy = HIT.reduce((a, h) => a + h.y, 0) / HIT.length;
-    U.slide.value.set(wx(cx - 5), wz(cy), 14); } else U.slide.value.set(0, 0, 0);
-  colorHouses(); hud();
-}
-function hud(){
-  const L = currentLevel(); $("hLv").textContent = L.toFixed(1) + " ม.";
-  const lv = V.levels; let t, c;
-  if (L <= 0.05) { t = "ปกติ"; c = "var(--ok)"; } else if (L <= lv.yearly) { t = "ท่วมระดับทุกปี"; c = "var(--accent)"; }
-  else if (L <= lv.heavy) { t = "ปีน้ำมาก"; c = "var(--warn)"; } else { t = "ปีวิกฤต"; c = "var(--danger)"; }
-  const wet = hh.filter(h => h.hand < L - 0.3).length;
-  $("hTag").innerHTML = `<span class="pill" style="background:${c};color:#fff">${t}</span> <span class="tag">บ้านน้ำเข้า ${wet} หลัง</span>`;
+  // gauge (stick = 0–6 m)
+  $("gFill").style.height = Math.min(100, E.level / 6 * 100) + "%";
+  $("gVal").textContent = E.level.toFixed(1);
+  const wet = hh.filter(h => h.hand < E.level - 0.3).length;
+  $("gWet").innerHTML = wet ? `น้ำเข้าบ้าน<br><b style="font-size:13px">${wet}</b> หลัง` : "";
+  document.querySelectorAll("[data-l]").forEach(el => { el.checked = !!E.layers[el.dataset.l]; });
 }
 
-// ---------- camera presets
+// ================= camera
 const ctr = arr => [arr.reduce((a, o) => a + o.x, 0) / arr.length, arr.reduce((a, o) => a + o.y, 0) / arr.length];
 const moo = m => hh.filter(h => h.moo === m);
 const F = id => V.facilities.find(f => f.id === id);
 const CAMS = {overview:{label:"ภาพรวม", c:[262, 268], d:330, az:.35, pol:.95},
-  m1:{label:"หมู่ 1 ปากห้วย", c:ctr(moo(1)), d:120, az:.2, pol:.9}, m2:{label:"หมู่ 2 ในหุบ", c:ctr(moo(2)), d:200, az:.9, pol:.85},
-  m3:{label:"หมู่ 3 เชิงควน", c:ctr(moo(3)), d:210, az:1.0, pol:.85}, m4:{label:"หมู่ 4 ทุ่งเสม็ด", c:ctr(moo(4)), d:140, az:.5, pol:.9},
-  temple:{label:"วัด / รพ.สต.", c:[F("F4").x, F("F4").y - 6], d:90, az:.3, pol:.9}, all:{label:"ทั้งพื้นที่", c:[192, 192], d:780, az:0, pol:.8}};
+  m1:{label:"หมู่ 1 ปากห้วย", c:ctr(moo(1)), d:130, az:.2, pol:.9}, m2:{label:"หมู่ 2 ในหุบ", c:ctr(moo(2)), d:210, az:.9, pol:.85},
+  m3:{label:"หมู่ 3 เชิงควน", c:ctr(moo(3)), d:210, az:1.0, pol:.85}, m4:{label:"หมู่ 4 ทุ่งเสม็ด", c:ctr(moo(4)), d:150, az:.5, pol:.9},
+  temple:{label:"วัด และ รพ.สต.", c:[F("F4").x, F("F4").y - 6], d:100, az:.3, pol:.9}, all:{label:"ทั้งพื้นที่", c:[192, 192], d:780, az:0, pol:.8}};
 let tween = null;
 function goCam(key, instant){
   const k = CAMS[key]; const [cx, cy] = k.c; const tgt = new THREE.Vector3(wx(cx), wy(Z(cx, cy)), wz(cy));
   const p = new THREE.Vector3(tgt.x + k.d * Math.sin(k.pol) * Math.sin(k.az), tgt.y + k.d * Math.cos(k.pol), tgt.z + k.d * Math.sin(k.pol) * Math.cos(k.az));
-  document.querySelectorAll("#cams button").forEach(b => b.classList.toggle("on", b.dataset.k === key));
-  if (instant || matchMedia("(prefers-reduced-motion: reduce)").matches) { controls.target.copy(tgt); camera.position.copy(p); return; }
+  if (instant || reduced) { controls.target.copy(tgt); camera.position.copy(p); tween = null; return; }
   tween = {t0:performance.now(), a:camera.position.clone(), b:p, ta:controls.target.clone(), tb:tgt};
 }
-Object.entries(CAMS).forEach(([k, c]) => { const b = document.createElement("button"); b.textContent = c.label; b.dataset.k = k; b.onclick = () => goCam(k); $("cams").appendChild(b); });
+const camKey = () => state.mode === "story" ? S.stages[state.i].cam : (state.explore.place || "overview");
 
-// ---------- story
-const esc = s => s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-S.stages.forEach((s, i) => { const b = document.createElement("button"); b.setAttribute("aria-label", "ช่วงที่ " + (i + 1) + " " + s.title); b.onclick = () => show(i); $("dots").appendChild(b); });
-function show(i, instantCam){
-  const s = S.stages[i]; state.i = i; state.level = s.level; state.broken = s.broken; state.landslide = s.landslide; state.flash = s.flash; state.manual = null;
-  $("lvl").value = s.level; $("lvlv").textContent = s.level.toFixed(1) + " ม.";
-  $("when").textContent = `ช่วงที่ ${i + 1}/${S.stages.length} · ${s.time}`; $("stitle").textContent = s.title;
-  const rain = ["", "🌧 ฝนตกต่อเนื่อง", "🌧🌧 ฝนตกหนัก", "🌧🌧🌧 ฝนตกหนักมาก"][s.rain] || "";
-  const tags = [rain, s.power ? "" : "⚡ ไฟฟ้าดับ", s.flash ? "น้ำป่าไหลหลาก" : "", s.landslide && i === 4 ? "ดินถล่ม" : ""].filter(Boolean)
-    .map(t => `<span class="rk ${/ไฟ|ถล่ม|ป่า/.test(t) ? "r" : "b"}">${t}</span>`).join(" ");
-  $("body").innerHTML = (tags ? `<div class="risk" style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${tags}</div>` : "") +
-    s.text.map(t => `<p>${esc(t)}</p>`).join("") +
-    `<div class="see"><b>ดูในแผนที่:</b> ${esc(s.see)}</div>` +
-    `<div class="ask"><h3>คำถามชวนคิด</h3><ol>${s.ask.map(q => `<li>${esc(q)}</li>`).join("")}</ol></div>`;
-  $("body").scrollTop = 0;
-  $("prev").disabled = i === 0; $("next").disabled = i === S.stages.length - 1;
-  [...$("dots").children].forEach((d, j) => { d.className = j === i ? "on" : j < i ? "past" : ""; });
-  if (s.flash && !layers.flash) setLayer("flash", true);
-  if (i === 4 && !layers.ls) setLayer("ls", true);
-  if (i === 5 && !layers.evac) setLayer("evac", true);
-  if (i === 6 && !layers.pond) setLayer("pond", true);
-  if (i === 7) ["zone", "flash", "pond", "ls", "evac"].forEach(k => setLayer(k, true));
-  applyLayers(); goCam(s.cam, instantCam);
-  try { localStorage.setItem("hnk-stage", i); } catch (e) {}
+// ================= sheet sizing (phone): peek / half / full
+const docked = () => matchMedia("(min-width:900px), (orientation:landscape) and (max-height:540px)").matches;
+const sheet = $("sheet");
+let snap = "half";
+function snapPx(s){ const h = innerHeight; const head = $("shHead").offsetHeight + $("shFoot").offsetHeight + 22;
+  return s === "peek" ? head : s === "full" ? Math.round(h * .86) : Math.max(head + 120, Math.round(h * .46)); }
+function setSnap(s){ snap = s; sheet.style.setProperty("--sh", snapPx(s) + "px"); setTimeout(resize, 300); }
+function sheetRect(){ return sheet.getBoundingClientRect(); }
+(function dragSheet(){
+  let y0 = null, h0 = 0, moved = false;
+  const start = e => { if (docked()) return; y0 = e.clientY; h0 = sheet.offsetHeight; moved = false; sheet.classList.add("dragging"); e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const move = e => { if (y0 == null) return; const dy = y0 - e.clientY; if (Math.abs(dy) > 4) moved = true;
+    sheet.style.setProperty("--sh", Math.max(snapPx("peek"), Math.min(innerHeight * .9, h0 + dy)) + "px"); };
+  const end = e => { if (y0 == null) return; sheet.classList.remove("dragging"); const hNow = sheet.offsetHeight; y0 = null;
+    if (!moved) { setSnap(snap === "peek" ? "half" : snap === "half" ? "full" : "peek"); return; }
+    const opts = ["peek", "half", "full"]; setSnap(opts.reduce((a, b) => Math.abs(snapPx(b) - hNow) < Math.abs(snapPx(a) - hNow) ? b : a)); };
+  [$("grab"), $("shHead")].forEach(el => { el.addEventListener("pointerdown", start); el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); });
+  $("grab").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSnap(snap === "full" ? "peek" : snap === "peek" ? "half" : "full"); } });
+})();
+
+// ================= render sheet content
+const FL = {yearly:["น้ำท่วมทุกปี", "r"], heavy:["ท่วมในปีน้ำมาก", "o"], extreme:["ท่วมในปีวิกฤต", "b"], none:["ที่ดอน ไม่ท่วม", ""]};
+function riskTags(o){ const f = FL[o.flood]; let s = `<span class="tag ${f[1]}">${f[0]}</span>`;
+  if (o.flash) s += `<span class="tag r">อยู่บนทางน้ำป่า</span>`;
+  if (o.landslide > .6) s += `<span class="tag r">ชิดลาดชันเสี่ยงดินถล่ม</span>`; else if (o.landslide > .4) s += `<span class="tag o">ใกล้ลาดชัน</span>`;
+  if (o.pond > .5) s += `<span class="tag o">อยู่ในแอ่งน้ำขัง</span>`; return `<div class="info-tags">${s}</div>`; }
+function renderStory(){
+  const s = S.stages[state.i], n = S.stages.length, last = state.i === n - 1;
+  const alert = /ดับ|ขาด|ตาย|จมมิด|แดง|เจ็บ/;
+  $("shHead").innerHTML = `<div class="kicker"><span>${esc(s.time)}</span><span class="count">ช่วงที่ ${state.i + 1} จาก ${n}</span></div>
+    <h2>${esc(s.title)}</h2>
+    <div class="facts">${Object.entries(s.facts).map(([k, v]) => `<div class="fact${alert.test(v) ? " alert" : ""}"><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join("")}</div>`;
+  $("shBody").innerHTML = `<p class="lead">${esc(s.lead)}</p>` +
+    s.sections.map(x => `<div class="sec"><h3>${esc(x.h)}</h3>${x.p.map(p => `<p>${esc(p)}</p>`).join("")}</div>`).join("") +
+    `<div class="mapnote">${IC.map}<div><b>บนแผนที่</b> ${esc(s.map)}</div></div>`;
+  $("shBody").scrollTop = 0;
+  $("shFoot").className = "sh-foot story";
+  $("shFoot").innerHTML = `<div class="track" role="group" aria-label="ช่วงเวลา">${S.stages.map((t, j) => `<button data-go="${j}" class="${j === state.i ? "on" : j < state.i ? "past" : ""}" aria-label="ช่วงที่ ${j + 1} ${esc(t.title)}"${j === state.i ? ' aria-current="step"' : ""}></button>`).join("")}</div>
+    <button class="btn ghost" data-act="prev" ${state.i === 0 ? "disabled" : ""} aria-label="ช่วงก่อนหน้า">${IC.prev}ก่อนหน้า</button>
+    ${last ? `<button class="btn primary" data-act="restart">${IC.restart}เริ่มเรื่องใหม่</button>`
+           : `<button class="btn primary" data-act="next">ถัดไป ${IC.next}</button>`}
+    ${state.i > 0 && !last ? `<button class="btn ghost" data-act="restart" aria-label="เริ่มเรื่องใหม่">${IC.restart}</button>` : ""}`;
 }
-$("prev").onclick = () => state.i > 0 && show(state.i - 1);
-$("next").onclick = () => state.i < S.stages.length - 1 && show(state.i + 1);
-$("grab").onclick = () => { const sh = $("sheet"); if (sh.classList.contains("min")) sh.classList.remove("min");
-  else if (sh.classList.contains("full")) { sh.classList.remove("full"); sh.classList.add("min"); } else sh.classList.add("full"); setTimeout(resize, 300); };
+function renderExplore(){
+  const E = state.explore;
+  $("shHead").innerHTML = `<div class="kicker"><span>โหมดสำรวจ</span></div><h2>สำรวจแผนที่ด้วยตัวเอง</h2>`;
+  const lv = [[0, "ปกติ", "0 ม."], [LV.yearly, "ทุกปี", LV.yearly + " ม."], [LV.heavy, "ปีน้ำมาก", LV.heavy + " ม."], [LV.extreme, "ปีวิกฤต", LV.extreme + " ม."]];
+  $("shBody").innerHTML = `
+    <div class="group"><h3>ระดับน้ำ</h3><div class="lvls">${lv.map(([v, t, s]) => `<button data-lv="${v}" class="${Math.abs(E.level - v) < .05 ? "on" : ""}">${t}<small>${s}</small></button>`).join("")}</div>
+      <div class="slider"><label for="lvl"><span>ปรับละเอียด</span><b id="lvlv">${E.level.toFixed(1)} ม.</b></label><input type="range" id="lvl" min="0" max="6" step="0.1" value="${E.level}"></div>
+      <div class="stat" id="xstat"></div></div>
+    <div class="group"><h3>ไปที่</h3><div class="chips">${Object.entries(CAMS).map(([k, c]) => `<button class="chip${E.place === k ? " on" : ""}" data-cam="${k}">${c.label}</button>`).join("")}</div></div>
+    <div class="group"><h3>ชั้นข้อมูล</h3><div id="xLayers"></div></div>
+    <div class="group"><h3>ความสูงของภูเขา</h3><div class="slider"><label for="exag"><span>ขยายแนวตั้ง</span><b id="exv">${exag.toFixed(1)} เท่า</b></label><input type="range" id="exag" min="1" max="3" step="0.1" value="${exag}"></div></div>
+    <p class="note">ภูมิประเทศจากข้อมูลดาวเทียม SRTM ความละเอียดประมาณ 19 เมตร ส่วนชุมชน ผู้คน และเหตุการณ์เป็นเรื่องสมมติ แบบจำลองน้ำเป็นแบบง่ายเพื่อการเรียนรู้ ไม่ใช่การพยากรณ์</p>`;
+  $("xLayers").appendChild($("tLayers").content.cloneNode(true));
+  $("shFoot").className = "sh-foot";
+  $("shFoot").innerHTML = `<button class="btn ghost" data-act="xreset" style="flex:1">${IC.restart}รีเซ็ตแผนที่</button><button class="btn primary" data-act="tostory">ไปที่เรื่องเล่า</button>`;
+  xStat(); apply();
+}
+function xStat(){ const L = state.explore.level; const wetH = hh.filter(h => h.hand < L - 0.3);
+  const vul = wetH.filter(isVul).length; const ppl = wetH.reduce((a, h) => a + h.members, 0);
+  const fac = V.facilities.filter(f => f.hand < L).map(f => SHORT[f.id]);
+  const el = $("xstat"); if (!el) return;
+  el.innerHTML = `<div><b>${wetH.length}</b><small>บ้านน้ำเข้า (${ppl} คน)</small></div><div><b>${vul}</b><small>บ้านกลุ่มเปราะบางที่น้ำเข้า</small></div>
+    <div style="grid-column:1/-1"><small>สถานที่ที่น้ำท่วม</small><br><b style="font-size:15px">${fac.length ? fac.join(" · ") : "ไม่มี"}</b></div>`; }
+function renderInfo(html){
+  state.info = true; closePop();
+  $("shHead").innerHTML = ""; $("shBody").innerHTML = html; $("shBody").scrollTop = 0;
+  $("shFoot").className = "sh-foot";
+  $("shFoot").innerHTML = `<button class="btn ghost" data-act="closeinfo" style="flex:1">${IC.back}กลับไป${state.mode === "story" ? "ที่เรื่องเล่า" : "ที่การสำรวจ"}</button>`;
+  if (!docked() && snap === "peek") setSnap("half");
+}
+function render(){ state.info = null; state.mode === "story" ? renderStory() : renderExplore(); }
 
-// ---------- layer panel
-function setLayer(k, v){ layers[k] = v; const el = $("L_" + k); if (el) el.checked = v; applyLayers(); }
-Object.keys(layers).forEach(k => { const el = $("L_" + k); if (el) { el.checked = layers[k]; el.onchange = () => setLayer(k, el.checked); } });
-$("lvl").oninput = e => { state.manual = +e.target.value; $("lvlv").textContent = state.manual.toFixed(1) + " ม."; if (!layers.water) setLayer("water", true); applyLayers(); };
-$("exag").oninput = e => { exag = +e.target.value; U.exag.value = exag; $("exv").textContent = exag.toFixed(1) + " เท่า"; placeHouses(); placeFac(); buildEvac(); };
-$("exv").textContent = exag.toFixed(1) + " เท่า";
-function toggle(id, btn){ const p = $(id); const open = p.hidden; ["layers", "legend", "info"].forEach(x => $(x).hidden = true);
-  $("bLayers").setAttribute("aria-pressed", "false"); $("bLegend").setAttribute("aria-pressed", "false");
-  p.hidden = !open; if (btn) btn.setAttribute("aria-pressed", String(open)); }
-$("bLayers").onclick = e => toggle("layers", e.currentTarget);
-$("bLegend").onclick = e => toggle("legend", e.currentTarget);
-document.addEventListener("click", e => { const c = e.target.closest("[data-close]"); if (c) { $(c.dataset.close).hidden = true;
-  $("bLayers").setAttribute("aria-pressed", "false"); $("bLegend").setAttribute("aria-pressed", "false"); } });
-$("legendBody").innerHTML = Object.entries(KIND).map(([k, [t, c]]) => `<span class="chipk" style="background:${c}">${t}</span><span>${V.facilities.find(f => f.kind === k).name}</span>`).join("") +
-  `<span class="chipk" style="background:#d8cdb4;color:#333">บ้าน</span><span>ครัวเรือน (120 หลัง)</span>
-   <span class="chipk" style="background:#e8590c">บ้าน</span><span>ครัวเรือนที่มีกลุ่มเปราะบาง</span>
-   <span class="chipk" style="background:#5b8fc0">บ้าน</span><span>บ้านที่น้ำเข้าในระดับน้ำปัจจุบัน</span>
-   <span class="chipk" style="background:#b42318">✕</span><span>สะพานขาด</span>`;
+// ================= actions
+function showStage(i, instant){ state.i = Math.max(0, Math.min(S.stages.length - 1, i)); state.override = {}; closePop(); render(); apply(); goCam(camKey(), instant); }
+function setMode(m){ state.mode = m; $("mStory").setAttribute("aria-pressed", m === "story"); $("mExplore").setAttribute("aria-pressed", m === "explore");
+  closePop(); render(); apply(); goCam(camKey()); }
+function exploreReset(){ state.explore = {layers:{...DEFAULT_LAYERS}, level:0, place:null}; exag = 1.8; U.exag.value = exag; placeHouses(); placeFac(); buildEvac(); render(); apply(); goCam("overview"); }
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-act],[data-go],[data-lv],[data-cam]"); if (!t) return;
+  if (t.dataset.go != null) return showStage(+t.dataset.go);
+  if (t.dataset.lv != null) { state.explore.level = +t.dataset.lv; renderExplore(); return; }
+  if (t.dataset.cam) { state.explore.place = t.dataset.cam; document.querySelectorAll("[data-cam]").forEach(c => c.classList.toggle("on", c === t)); goCam(t.dataset.cam); return; }
+  const a = t.dataset.act;
+  if (a === "prev") showStage(state.i - 1); else if (a === "next") showStage(state.i + 1);
+  else if (a === "restart") { exag = 1.8; U.exag.value = exag; placeHouses(); placeFac(); buildEvac(); showStage(0); }
+  else if (a === "xreset") exploreReset(); else if (a === "tostory") setMode("story");
+  else if (a === "closeinfo") render(); else if (a === "closepop") closePop();
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "lvl") { state.explore.level = +t.value; $("lvlv").textContent = (+t.value).toFixed(1) + " ม.";
+    document.querySelectorAll("[data-lv]").forEach(b => b.classList.toggle("on", Math.abs(+b.dataset.lv - state.explore.level) < .05)); xStat(); apply(); }
+  if (t.id === "exag") { exag = +t.value; U.exag.value = exag; $("exv").textContent = exag.toFixed(1) + " เท่า"; placeHouses(); placeFac(); buildEvac(); labels.forEach(L => L.w = 0); }
+});
+document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.l; if (!k) return;
+  if (state.mode === "story") state.override[k] = e.target.checked; else state.explore.layers[k] = e.target.checked; apply(); });
+$("mStory").onclick = () => state.mode !== "story" && setMode("story");
+$("mExplore").onclick = () => state.mode !== "explore" && setMode("explore");
+$("bRecenter").onclick = () => goCam(camKey());
+document.addEventListener("keydown", e => { if (state.mode !== "story" || e.target.closest("input")) return;
+  if (e.key === "ArrowRight") showStage(state.i + 1); if (e.key === "ArrowLeft") showStage(state.i - 1); });
 
-// ---------- info card on tap
+// popovers: layers (story mode quick toggles) and help
+const pop = $("pop");
+function closePop(){ pop.hidden = true; $("bLayers").setAttribute("aria-pressed", "false"); $("bHelp").setAttribute("aria-pressed", "false"); }
+function openPop(which){
+  if (!pop.hidden && pop.dataset.w === which) return closePop();
+  closePop(); pop.dataset.w = which;
+  if (which === "layers") {
+    if (state.mode === "explore") { if (!docked()) setSnap("full"); $("xLayers")?.scrollIntoView({behavior:reduced ? "auto" : "smooth"}); return; }
+    pop.innerHTML = `<div class="pop-h">ชั้นข้อมูล<button class="icon" data-act="closepop" aria-label="ปิด">${IC.close}</button></div><div id="pL"></div>
+      <p class="note">ช่วงนี้ของเรื่องเล่าเปิดชั้นข้อมูลที่เกี่ยวข้องไว้ให้แล้ว ถ้าเปิดหรือปิดเพิ่ม การตั้งค่าจะกลับเป็นแบบเดิมเมื่อเปลี่ยนช่วง</p>`;
+    $("pL").appendChild($("tLayers").content.cloneNode(true)); apply(); $("bLayers").setAttribute("aria-pressed", "true");
+  } else {
+    pop.innerHTML = `<div class="pop-h">วิธีใช้<button class="icon" data-act="closepop" aria-label="ปิด">${IC.close}</button></div>
+      <p style="margin:4px 0">หนึ่งนิ้ว: หมุนมุมมอง · สองนิ้ว: ซูมและเลื่อน · แตะบ้านหรืออาคาร: ดูข้อมูล</p>
+      <p style="margin:4px 0"><b>เรื่องเล่า</b>: กดถัดไปเพื่อดูเหตุการณ์ทีละช่วง แผนที่จะเปลี่ยนระดับน้ำและเหตุการณ์ตามช่วงนั้น ลากแถบด้านบนของแผงขึ้นหรือลงเพื่อดูแผนที่มากขึ้น</p>
+      <p style="margin:4px 0"><b>สำรวจแผนที่</b>: เลือกระดับน้ำ เปิดชั้นข้อมูล และไปดูแต่ละหมู่ได้เอง</p>
+      <div class="pop-h" style="font-size:15px">สัญลักษณ์</div>
+      ${Object.entries(KIND).map(([k, [t, c]]) => `<div class="sw" style="cursor:default"><i class="swatch" style="background:${c}"></i><span>${esc(V.facilities.find(f => f.kind === k).name)}</span></div>`).join("")}
+      <div class="sw" style="cursor:default"><i class="swatch" style="background:#efe6d2;border:1px solid #bbb"></i><span>บ้าน (120 หลัง)</span></div>
+      <div class="sw" style="cursor:default"><i class="swatch" style="background:#e8590c"></i><span>บ้านที่มีกลุ่มเปราะบาง</span></div>
+      <div class="sw" style="cursor:default"><i class="swatch" style="background:#4f86bd"></i><span>บ้านที่น้ำเข้าตามระดับน้ำขณะนั้น</span></div>
+      <div class="sw" style="cursor:default"><i class="swatch" style="background:#2e1b0e"></i><span>บ้านที่ถูกดินถล่มทับ</span></div>
+      <p class="note">ไม้วัดระดับน้ำด้านขวาบอกว่าน้ำสูงกว่าระดับคลองปกติกี่เมตร แถบเขียว เหลือง และแดงเหมือนไม้วัดระดับน้ำจริงในชุมชน</p>
+      <p class="note">ภูมิประเทศจาก SRTM ส่วนชุมชน ผู้คน และเหตุการณ์เป็นเรื่องสมมติ แบบจำลองน้ำเป็นแบบง่าย คำนวณจากความสูงเหนือทางน้ำที่ใกล้ที่สุด</p>`;
+    $("bHelp").setAttribute("aria-pressed", "true");
+  }
+  pop.hidden = false;
+}
+$("bLayers").onclick = () => openPop("layers");
+$("bHelp").onclick = () => openPop("help");
+
+// ================= tap to inspect
 const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(); let down = null;
-renderer.domElement.addEventListener("pointerdown", e => down = [e.clientX, e.clientY]);
+const hint = $("hint"); const hideHint = () => { hint.style.opacity = 0; setTimeout(() => hint.hidden = true, 400); };
+setTimeout(hideHint, 5000);
+renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; if (!hint.hidden) hideHint(); closePop(); });
 renderer.domElement.addEventListener("pointerup", e => {
-  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) return;
   const r = renderer.domElement.getBoundingClientRect();
   mouse.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(mouse, camera);
   const hit = ray.intersectObjects([houseMesh, ...facMeshes])[0];
   if (!hit) return;
   if (hit.object === houseMesh) infoHouse(hh[hit.instanceId]); else infoFac(hit.object.userData.fac);
 });
-const FL = {yearly:["ท่วมทุกปี", "r"], heavy:["ท่วมปีน้ำมาก", "o"], extreme:["ท่วมปีวิกฤต", "b"], none:["ไม่ท่วม (ที่ดอน)", ""]};
-function risks(o){ const f = FL[o.flood]; let s = `<span class="rk ${f[1]}">${f[0]}</span>`;
-  if (o.flash) s += `<span class="rk r">ทางน้ำป่า</span>`; if (o.landslide > .6) s += `<span class="rk r">ใกล้ลาดชันเสี่ยงดินถล่ม</span>`;
-  else if (o.landslide > .4) s += `<span class="rk o">ใกล้ลาดชัน</span>`; if (o.pond > .5) s += `<span class="rk o">แอ่งน้ำขัง</span>`;
-  return `<div class="risk">${s}</div>`; }
-function openInfo(html){ ["layers", "legend"].forEach(x => $(x).hidden = true); $("info").innerHTML = html; $("info").hidden = false; }
 function infoHouse(h){
-  const vil = V.villages.find(v => v.moo === h.moo);
-  const rows = [["สมาชิก", h.members + " คน"], ["ผู้สูงอายุ 60+", h.elderly], ["เด็กเล็ก < 5 ปี", h.under5], ["ติดเตียง", h.bedridden ? "มี" : "–"],
-    ["พิการ", h.disabled ? "มี" : "–"], ["ตั้งครรภ์", h.pregnant ? "มี" : "–"], ["โรคเรื้อรัง (เบาหวาน/ความดัน)", h.ncd || "–"], ["ฟอกไต", h.dialysis ? "มี" : "–"],
-    ["ผู้ป่วยจิตเวช", h.psych ? "มี" : "–"], ["ลักษณะบ้าน", h.house], ["น้ำดื่มน้ำใช้", h.water], ["อาชีพหลัก", h.job], ["สัตว์เลี้ยง/ปศุสัตว์", h.livestock ? "มี" : "–"],
-    ["ความสูงเหนือทางน้ำ", h.hand.toFixed(1) + " ม."]];
-  openInfo(`<h3>บ้านเลขที่ ${h.no} <button class="x" data-close="info" aria-label="ปิด">✕</button></h3>
-    <div class="note" style="margin:0 0 6px">รหัส ${h.id} · หมู่ ${h.moo} ${vil.name}</div>
-    ${h.story ? `<div class="story">${esc(h.story)}</div>` : ""}${h.hit ? `<div class="story" style="background:#3b2414;color:#ffd9b8">ในเรื่องเล่า บ้านหลังนี้ถูกดินถล่มทับ (ช่วงที่ 5)</div>` : ""}
-    ${risks(h)}<dl>${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl>
+  const vil = V.villages.find(v => v.moo === h.moo); const E = lastE;
+  const depth = E.layers.water ? Math.max(0, E.level - h.hand) : 0;
+  const cell = (k, v, hl, wide) => `<div class="${hl ? "hl" : ""}${wide ? " wide" : ""}"><small>${k}</small><b>${v}</b></div>`;
+  renderInfo(`<div class="kicker" style="margin-top:12px"><span>หมู่ ${h.moo} ${esc(vil.name)}</span><span class="count">รหัส ${h.id}</span></div>
+    <h2 style="font:700 21px var(--f-display);margin:2px 0 0">บ้านเลขที่ ${esc(h.no)}</h2>
+    ${h.story ? `<div class="story-box">${esc(h.story)}</div>` : ""}
+    ${E.landslide && h.hit ? `<div class="story-box dark">ในเรื่องเล่า บ้านหลังนี้ถูกดินถล่มทับเมื่อเช้ามืดวันอาทิตย์</div>` : ""}
+    ${riskTags(h)}
+    ${depth > 0.3 ? `<p style="margin:0 0 8px"><b>ตอนนี้น้ำในบ้านลึกประมาณ ${depth.toFixed(1)} เมตร</b></p>` : ""}
+    <div class="kv">${cell("สมาชิก", h.members + " คน")}${cell("ผู้สูงอายุ 60+", h.elderly || "–", h.elderly)}${cell("เด็กเล็กต่ำกว่า 5 ปี", h.under5 || "–", h.under5)}
+      ${cell("ติดเตียง", h.bedridden ? "มี" : "–", h.bedridden)}${cell("พิการ", h.disabled ? "มี" : "–", h.disabled)}${cell("ตั้งครรภ์", h.pregnant ? "มี" : "–", h.pregnant)}
+      ${cell("เบาหวาน/ความดัน", h.ncd ? h.ncd + " คน" : "–", h.ncd)}${cell("ฟอกไต", h.dialysis ? "มี" : "–", h.dialysis)}${cell("ผู้ป่วยจิตเวช", h.psych ? "มี" : "–", h.psych)}
+      ${cell("สัตว์เลี้ยง", h.livestock ? "มี" : "–")}${cell("ลักษณะบ้าน", esc(h.house), false, true)}${cell("น้ำดื่มน้ำใช้", esc(h.water))}${cell("อาชีพ", esc(h.job))}
+      ${cell("สูงจากระดับคลอง", h.hand.toFixed(1) + " ม.", false, true)}</div>
     <p class="note">ข้อมูลสมมติเพื่อการฝึก</p>`);
 }
 function infoFac(f){
-  openInfo(`<h3>${esc(f.name)} <button class="x" data-close="info" aria-label="ปิด">✕</button></h3>${risks(f)}
-    <p style="margin:6px 0">${esc(f.info).replace(/ \| /g, "<br>")}</p>
-    <dl><dt>ระดับพื้นดิน</dt><dd>${f.elev.toFixed(0)} ม. รทก.</dd><dt>ความสูงเหนือทางน้ำ</dt><dd>${f.hand.toFixed(1)} ม.</dd></dl>`);
+  const E = lastE; const depth = E.layers.water ? Math.max(0, E.level - f.hand) : 0;
+  renderInfo(`<div class="kicker" style="margin-top:12px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${KIND[f.kind][1]}"></i> ${KIND[f.kind][0]}</span></div>
+    <h2 style="font:700 21px var(--f-display);margin:2px 0 0">${esc(f.name)}</h2>${riskTags(f)}
+    ${depth > 0.05 ? `<p style="margin:0 0 8px"><b>ตอนนี้น้ำท่วมสูงประมาณ ${depth.toFixed(1)} เมตร</b></p>` : ""}
+    <div class="kv">${esc(f.info).split(" | ").map(t => `<div class="wide"><b style="font-weight:500;font-family:var(--f-body)">${t}</b></div>`).join("")}
+    <div><small>ระดับพื้นดิน</small><b>${f.elev.toFixed(0)} ม. รทก.</b></div><div><small>สูงจากระดับคลอง</small><b>${f.hand.toFixed(1)} ม.</b></div></div>`);
 }
 
-// ---------- loop
-function resize(){ const w = host.clientWidth, h = host.clientHeight; renderer.setSize(w, h); camera.aspect = w / h;
-  const sr = $("sheet").getBoundingClientRect(); let ox = 0, oy = 0;
-  if (innerWidth >= 900) ox = -(sr.right) / 2; else oy = (h - sr.top) / 2 - 50;
-  camera.setViewOffset(w, h, ox, oy, w, h); camera.updateProjectionMatrix(); }
-new ResizeObserver(() => resize()).observe(document.getElementById("sheet"));
-addEventListener("resize", resize);
-matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => scene.background.set(skyCol()));
-new MutationObserver(() => scene.background.set(skyCol())).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+// ================= loop
+function resize(){
+  const w = innerWidth, h = innerHeight; renderer.setSize(w, h); camera.aspect = w / h;
+  const sr = sheetRect(); let ox = 0, oy = 0;
+  if (docked()) ox = -sr.right / 2; else oy = (h - sr.top) / 2 - 30;
+  camera.setViewOffset(w, h, ox, oy, w, h); camera.updateProjectionMatrix();
+}
+addEventListener("resize", () => { if (!docked()) setSnap(snap); resize(); labels.forEach(L => L.w = 0); });
+new ResizeObserver(resize).observe(sheet);
+const themeSync = () => scene.background.set(skyCol());
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", themeSync);
+new MutationObserver(themeSync).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+let lt = 0;
 function loop(t){
   requestAnimationFrame(loop);
+  const dt = Math.min(.1, (t - lt) / 1000); lt = t;
   U.time.value = t / 1000;
+  waterShown += (waterTarget - waterShown) * (reduced ? 1 : Math.min(1, dt * 3)); WU.level.value = waterShown;
   if (tween) { const k = Math.min(1, (t - tween.t0) / 1100), e = ease(k);
     camera.position.lerpVectors(tween.a, tween.b, e); controls.target.lerpVectors(tween.ta, tween.tb, e); if (k >= 1) tween = null; }
-  controls.update(); renderer.render(scene, camera); drawLabels();
+  controls.update(); renderer.render(scene, camera); if (lastE) drawLabels(lastE);
+  const g = $("gauge"), gb = g.offsetTop + g.offsetHeight; g.classList.toggle("off", !docked() && sheet.getBoundingClientRect().top < gb + 8);
 }
-placeHouses(); placeFac(); buildEvac(); resize();
-let start = 0; try { start = +(localStorage.getItem("hnk-stage") || 0); } catch (e) {}
-show(Math.min(start, S.stages.length - 1), true);
+controls.addEventListener("start", () => { tween = null; });
+placeHouses(); placeFac(); buildEvac();
+render(); setSnap("half"); resize(); apply(); goCam(camKey(), true); waterShown = waterTarget;
 $("loading").hidden = true;
 requestAnimationFrame(loop);
 })();

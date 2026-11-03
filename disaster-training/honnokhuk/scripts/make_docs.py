@@ -36,7 +36,7 @@ table{{border-collapse:collapse;width:100%}} th,td{{border:.8pt solid #9aa8a0;pa
 th{{background:#e4ebe4;font-weight:700}} td:first-child{{white-space:nowrap}}
 .reg td,.reg th{{font-size:8.6pt;padding:1.5pt 3pt;line-height:1.25}} .reg td.n{{text-align:center}}
 .write td{{height:34pt}} .write.tall td{{height:56pt}}
-.stage{{border-left:4pt solid #1f6f8b;padding:2pt 0 2pt 10pt;margin:0 0 10pt;break-inside:avoid}}
+.stage{{border-left:4pt solid #1f6f8b;padding:2pt 0 2pt 10pt;margin:0 0 12pt}}
 .stage .when{{font-weight:700;color:#1f6f8b;font-size:11pt}}
 .stage p{{margin:2pt 0}}
 .ask{{background:#eef3ee;border-radius:5pt;padding:4pt 8pt;margin-top:4pt;font-size:11.5pt}}
@@ -111,12 +111,13 @@ def village_page():
     <li>กลุ่มไลน์ของหมู่บ้านมีสมาชิกประมาณ 40% ของครัวเรือน ผู้สูงอายุส่วนใหญ่ไม่ได้ใช้</li></ul></section>"""
 
 def story_pages(with_notes=False):
-    out = [f'<section class="page"><div class="eyebrow">เรื่องเล่า</div><h2>{e(S["title"])}</h2><p class="muted small">อ่านทีละช่วง หยุดคุยตามคำถามท้ายช่วงก่อนอ่านช่วงถัดไป ดูประกอบในแผนที่ 3 มิติได้ (เลื่อนไปช่วงเดียวกัน)</p>']
+    out = [f'<section class="page"><div class="eyebrow">เรื่องเล่า</div><h2>{e(S["title"])}</h2><p class="muted small">อ่านทีละช่วงตามลำดับเวลา เปิดแผนที่ 3 มิติไปที่ช่วงเดียวกันเพื่อดูระดับน้ำและเหตุการณ์ประกอบ</p>']
     for i, s in enumerate(S["stages"]):
-        notes = f'<div class="small" style="margin-top:3pt"><b>วิทยากร:</b> {NOTES[i]}</div>' if with_notes else ""
+        notes = f'<div class="ask small"><b>วิทยากร:</b> {NOTES[i]}</div>' if with_notes else ""
+        facts = " · ".join(f"<b>{e(k)}</b> {e(v)}" for k, v in s["facts"].items())
+        secs = "".join(f'<p style="margin-top:4pt"><b>{e(x["h"])}</b></p>' + "".join(f"<p>{e(t)}</p>" for t in x["p"]) for x in s["sections"])
         out.append(f'<div class="stage"><div class="when">ช่วงที่ {i + 1} · {e(s["time"])}</div><h3 style="margin:0 0 2pt">{e(s["title"])}</h3>'
-                   + "".join(f"<p>{e(t)}</p>" for t in s["text"])
-                   + f'<div class="ask"><b>คำถามชวนคิด</b><ol>{"".join(f"<li>{e(q)}</li>" for q in s["ask"])}</ol></div>{notes}</div>')
+                   f'<div class="small muted" style="margin-bottom:3pt">{facts}</div><p><i>{e(s["lead"])}</i></p>{secs}{notes}</div>')
     out.append("</section>")
     return out
 
