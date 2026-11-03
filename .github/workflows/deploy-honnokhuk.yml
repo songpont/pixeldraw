@@ -1,0 +1,27 @@
+name: Deploy Honnokhuk 3D map to Cloudflare Pages
+
+on:
+  push:
+    paths:
+      - "disaster-training/honnokhuk/site/**"
+      - ".github/workflows/deploy-honnokhuk.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Pages project (first run only)
+        uses: cloudflare/wrangler-action@v3
+        continue-on-error: true
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create honnokhuk --production-branch=main
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy disaster-training/honnokhuk/site --project-name=honnokhuk --branch=main

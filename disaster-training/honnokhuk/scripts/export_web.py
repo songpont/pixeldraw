@@ -19,6 +19,11 @@ html = open("web/template.html").read().replace("/*DATA*/null", json.dumps(data,
 # artifact build: the publisher adds the document skeleton
 open("web/artifact.html", "w").write(html)
 # standalone build: open directly in any browser / host anywhere
-open("web/honnokhuk-3d.html", "w").write('<!doctype html><html lang="th"><head><meta charset="utf-8">'
+standalone = ('<!doctype html><html lang="th"><head><meta charset="utf-8">'
   '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0">' + html + "</body></html>")
+open("web/honnokhuk-3d.html", "w").write(standalone)
+# deploy folder for Cloudflare Pages (or any static host): just index.html
+import os
+os.makedirs("site", exist_ok=True)
+open("site/index.html", "w").write(standalone)
 print(len(html) // 1024, "KB")
