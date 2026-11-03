@@ -3,7 +3,9 @@
 ชุดสื่ออบรมแกนนำชุมชนและสภาองค์กรชุมชน ใช้ฝึกวิเคราะห์ห่วงโซ่ผลกระทบ (impact chain) และผลต่อสุขภาพ (health outcome) จากน้ำท่วม น้ำป่าไหลหลาก และดินถล่ม
 ภูมิประเทศเป็นของจริง คือเทือกเขาหลวงด้านตะวันออก จ.นครศรีธรรมราช ใช้ข้อมูลความสูง SRTM จาก AWS Terrain Tiles ส่วนชุมชน ผู้คน และเหตุการณ์ทั้งหมดเป็นเรื่องสมมติ
 
-## สิ่งที่ได้ (`output/`, `web/`)
+แผนที่ 3 มิติออนไลน์: https://honnokhuk.pages.dev/ (deploy จากโฟลเดอร์ `site/` ด้วย GitHub Action `.github/workflows/deploy-honnokhuk.yml`)
+
+## สิ่งที่ได้ (`output/`, `web/`, `site/`)
 
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
@@ -21,8 +23,8 @@ python3 scripts/analyze.py data/dem_mosaic_z13.npy data   # วิเครา�
 python3 scripts/build_village.py                          # วางผังชุมชนและคำนวณความเสี่ยงของแต่ละหลัง
 python3 scripts/render_base.py                            # สร้างภาพพื้นแผนที่
 python3 scripts/export_web.py                             # สร้างแผนที่ 3 มิติ
-python3 scripts/make_maps.py <URL-แผนที่3มิติ> fonts       # สร้างแผนที่กระดาษพร้อม QR
-python3 scripts/make_docs.py <URL-แผนที่3มิติ>             # สร้างคู่มือ PDF (ต้องมี Playwright)
+python3 scripts/make_maps.py https://honnokhuk.pages.dev/ fonts       # สร้างแผนที่กระดาษพร้อม QR
+python3 scripts/make_docs.py https://honnokhuk.pages.dev/             # สร้างคู่มือ PDF (ต้องมี Playwright)
 ```
 
 แก้เรื่องเล่าได้ที่ `data/story.json` ข้อความในไฟล์นี้ใช้ทั้งในแผนที่ 3 มิติและในคู่มือ
