@@ -13,7 +13,7 @@ V2 = {"levels": V["levels"], "villages": [{k: v[k] for k in ("moo", "name", "des
 data = {"n": int(dem.shape[0]), "cell": V["meta"]["cell_m"], "zmin": float(dem.min()),
         "elev": b64(np.round(dem * 10).astype("<u2").tobytes()),
         "hand": b64(np.clip(np.round(np.nan_to_num(hand, nan=12.7) * 20), 0, 255).astype(np.uint8).tobytes()),
-        "base": uri("data/base_web.jpg", "image/jpeg"), "haz": uri("data/hazard.png", "image/png"),
+        "base": uri("data/base_web.jpg", "image/jpeg"), "haz": uri("data/hazard.png", "image/png"), "flow": uri("data/flow.png", "image/png"),
         "village": V2, "story": S}
 html = open("web/template.html").read().replace("/*DATA*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
 # artifact build: the publisher adds the document skeleton

@@ -75,4 +75,13 @@ fl = np.load("data/flash.npy").astype(float)
 haz = np.dstack([np.clip(h2(ls), 0, 1) * 255, np.clip(h2(ndimage.gaussian_filter(fl, .7)), 0, 1) * 255,
                  np.clip(h2(pond) / 3, 0, 1) * 255]).astype(np.uint8)
 Image.fromarray(haz).save("data/hazard.png", optimize=True)
+
+# flow direction field (downstream unit vector, smoothed) for animating the flash flood: R = x, G = y, mapped -1..1 → 0..255
+fd = T["fd"]; NB = np.array([(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)], float)
+dy = np.where(fd >= 0, NB[np.clip(fd, 0, 7), 0], 0); dx = np.where(fd >= 0, NB[np.clip(fd, 0, 7), 1], 0)
+w = np.log10(acc + 1)                      # weight big channels so the corridor direction dominates
+dx = ndimage.gaussian_filter(dx * w, 2.5); dy = ndimage.gaussian_filter(dy * w, 2.5)
+m = np.hypot(dx, dy) + 1e-6; dx, dy = dx / m, dy / m
+flow = np.dstack([(dx + 1) * 127.5, (dy + 1) * 127.5, np.zeros((N, N))]).clip(0, 255).astype(np.uint8)
+Image.fromarray(flow).save("data/flow.png", optimize=True)
 print("ok")
