@@ -167,7 +167,7 @@ th{background:#e4ebe4}
 def doc():
     stages = S["stages"]; pages = []
     pages.append(f"""<section class="page cover">
-      <div class="top">{logo_html(20)}<div class="org">{e(CR['organization'])}<br>{e(CR.get('program', ''))}</div></div>
+      <div class="top">{logo_html(15)}<div class="org" style="margin-left:auto;text-align:right">{e(CR.get('program', ''))}</div></div>
       <h1>ตำบลฮอนกฮูก</h1><h2>{e(S['title'])}</h2>
       <div><span class="kind">เอกสารกรณีศึกษาสำหรับผู้เข้าร่วม</span></div>
       <div class="hero"><img src="{uri(VIEWS + '/stage4-overview.jpg')}"></div>
@@ -215,7 +215,7 @@ def doc():
           <div class="row"><div><div class="facts">{facts(s)}</div><p class="lead">{e(s['lead'])}</p></div>{side}</div>
           <div class="cols">{secs}</div></section>""")
     cr = "".join(f"<dt>{e(a)}</dt><dd>{e(b)}</dd>" for a, b in CR["credits"])
-    pages.append(f"""<section class="page"><div class="top" style="display:flex;gap:6mm;align-items:center">{logo_html(16)}<div class="org">{e(CR['organization'])}</div></div>
+    pages.append(f"""<section class="page"><div class="top" style="display:flex;gap:6mm;align-items:center">{logo_html(13)}</div>
       <h2 style="font-size:20pt;margin:6mm 0 2mm">เครดิตและข้อมูลอ้างอิง</h2><dl class="credits">{cr}</dl>
       <h3 style="margin:6mm 0 2mm">ข้อควรทราบ</h3><p style="font-size:10pt">{e(CR['disclaimer'])}</p>
       <div style="display:flex;gap:5mm;align-items:center;margin-top:8mm;border:1pt solid #17231d;border-radius:4pt;padding:3mm">
