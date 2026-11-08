@@ -166,6 +166,10 @@ svg{display:block}
 }
 @media (max-width:380px){.brand{display:none}.seg{margin-left:0}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* capture mode used to render still images for the printed case book */
+body.capture .top,body.capture .rail,body.capture .sheet,body.capture .pop,body.capture .hint,body.capture .loading{display:none!important}
+body.capture .lbl{font-size:15px;padding:4px 9px}
+body.capture .gauge{top:16px;left:16px;transform:scale(1.15);transform-origin:top left}
 </style>
 
 <div id="scene"></div>
@@ -604,7 +608,7 @@ function infoFac(f){
 function resize(){
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h); camera.aspect = w / h;
   const sr = sheetRect(); let ox = 0, oy = 0;
-  if (docked()) ox = -sr.right / 2; else oy = (h - sr.top) / 2 - 30;
+  if (document.body.classList.contains("capture")) {} else if (docked()) ox = -sr.right / 2; else oy = (h - sr.top) / 2 - 30;
   camera.setViewOffset(w, h, ox, oy, w, h); camera.updateProjectionMatrix();
 }
 addEventListener("resize", () => { if (!docked()) setSnap(snap); resize(); labels.forEach(L => L.w = 0); });
@@ -629,5 +633,11 @@ placeHouses(); placeFac(); buildEvac();
 render(); setSnap("half"); resize(); apply(); goCam(camKey(), true); waterShown = waterTarget;
 $("loading").hidden = true;
 requestAnimationFrame(loop);
+// hook for the print pipeline (scripts/render_views.js); harmless for viewers
+window.HNK = {
+  capture(on){ document.body.classList.toggle("capture", on); resize(); labels.forEach(L => L.w = 0); },
+  stage(i, cam){ state.mode = "story"; showStage(i, true); if (cam) goCam(cam, true); waterShown = waterTarget; WU.level.value = waterShown; },
+  view(key){ goCam(key, true); }, stages: S.stages.length, cams: Object.keys(CAMS)
+};
 })();
 </script>
