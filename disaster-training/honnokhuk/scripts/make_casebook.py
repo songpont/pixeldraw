@@ -211,7 +211,7 @@ def doc():
         side = f'<div><div class="shot"><img src="{uri(ov)}"></div><div class="cap">ภาพรวมทั้งตำบลในช่วงเดียวกัน</div></div>' if os.path.exists(ov) else "<div></div>"
         secs = "".join(f'<div class="sec"><h3>{e(x["h"])}</h3>{"".join(f"<p>{e(p)}</p>" for p in x["p"])}</div>' for x in s["sections"])
         pages.append(f"""<section class="page"><div class="band"><span class="no">{k}</span><div><div class="when">ช่วงที่ {k} จาก {len(stages)} · {e(s['time'])}</div><h2>{e(s['title'])}</h2></div></div>
-          <div class="shot main"><img src="{uri(f'{VIEWS}/stage{k}.jpg')}"></div><div class="cap"><b>ในภาพ:</b> {e(s['map'])}</div>
+          <div class="shot main"><img src="{uri(f'{VIEWS}/stage{k}.jpg')}" style="height:{82 if sum(len(t) for x in s['sections'] for t in x['p']) > 1400 else 90}mm"></div><div class="cap"><b>ในภาพ:</b> {e(s['map'])}</div>
           <div class="row"><div><div class="facts">{facts(s)}</div><p class="lead">{e(s['lead'])}</p></div>{side}</div>
           <div class="cols">{secs}</div></section>""")
     cr = "".join(f"<dt>{e(a)}</dt><dd>{e(b)}</dd>" for a, b in CR["credits"])
